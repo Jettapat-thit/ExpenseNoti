@@ -107,12 +107,55 @@ def delete(expense_id):
     return redirect(url_for("index"))
 
 
-@app.route("/pay/<int:expense_id>", methods=["POST"])
+@app.route("/pay/<int:expense_id>", methods=["GET", "POST"])
 def pay(expense_id):
-    """กดเมื่อจ่ายเงินงวดนี้แล้ว -> เพิ่มจำนวนงวดที่จ่าย"""
-    models.increment_paid(expense_id, 1)
-    flash("บันทึกการชำระ +1 งวดแล้ว", "success")
-    return redirect(url_for("index"))
+    """บันทึกการจ่าย — กรอกยอดจริง + วันที่ แล้วเก็บลงประวัติ"""
+    expense = models.get_expense(expense_id)
+    if not expense:
+        flash("ไม่พบรายการ", "error")
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        amount = request.form.get("amount") or expense["amount"]
+        paid_date = request.form.get("paid_date") or date.today().isoformat()
+        note = request.form.get("note", "").strip()
+
+        installment_no = None
+        # ถ้าเป็นการผ่อน ให้เพิ่มงวดที่จ่าย + บันทึกเลขงวด
+        if expense.get("total_installments"):
+            installment_no = int(expense.get("paid_installments", 0)) + 1
+            models.increment_paid(expense_id, 1)
+
+        models.record_payment(expense_id, amount, paid_date, installment_no, note)
+        flash(f"บันทึกการจ่าย {expense['name']} แล้ว", "success")
+        return redirect(url_for("index"))
+
+    return render_template("pay.html", expense=expense, today=date.today())
+
+
+@app.route("/history")
+@app.route("/history/<int:expense_id>")
+def history(expense_id=None):
+    """ดูประวัติการจ่าย — ทั้งหมด หรือเฉพาะรายการเดียว"""
+    expense = models.get_expense(expense_id) if expense_id else None
+    payments = models.list_payments(expense_id=expense_id)
+    total = models.payment_total(expense_id=expense_id)
+    for p in payments:
+        p["category_name"] = models.CATEGORIES.get(p.get("category"), p.get("category") or "-")
+        p["icon"] = models.CATEGORY_ICONS.get(p.get("category"), "📌")
+    return render_template("history.html", payments=payments, total=total, expense=expense)
+
+
+@app.route("/payment/delete/<int:payment_id>", methods=["POST"])
+def payment_delete(payment_id):
+    """ลบรายการจ่าย (ถ้าเป็นงวดผ่อนจะลดจำนวนงวดที่จ่ายคืนด้วย)"""
+    p = models.get_payment(payment_id)
+    if p:
+        if p.get("installment_no"):
+            models.increment_paid(p["expense_id"], -1)
+        models.delete_payment(payment_id)
+        flash("ลบรายการจ่ายแล้ว", "success")
+    return redirect(request.referrer or url_for("history"))
 
 
 @app.route("/preview")

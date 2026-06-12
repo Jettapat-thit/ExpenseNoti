@@ -23,8 +23,9 @@ DATABASE_PATH = os.environ.get("DATABASE_PATH", str(BASE_DIR / "expenses.db"))
 # 1) สร้าง Provider + Messaging API channel ที่ https://developers.line.biz/console/
 # 2) คัดลอก Channel access token (long-lived) มาใส่ที่นี่
 # 3) หา User ID ของผู้รับ (เพิ่มบอทเป็นเพื่อน แล้วดูจาก webhook หรือใช้ /me)
-LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
-LINE_TO_USER_ID = os.environ.get("LINE_TO_USER_ID", "")
+# .strip() กันกรณี paste แล้วมีช่องว่าง/ขึ้นบรรทัดติดมา (สาเหตุ 401 ที่พบบ่อย)
+LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "").strip()
+LINE_TO_USER_ID = os.environ.get("LINE_TO_USER_ID", "").strip()
 
 # จำนวนวันก่อนถึงกำหนดที่จะเริ่มเตือน (ค่าเริ่มต้น)
 DEFAULT_REMIND_DAYS_BEFORE = int(os.environ.get("DEFAULT_REMIND_DAYS_BEFORE", "3"))

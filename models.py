@@ -77,6 +77,21 @@ def init_db():
             )
             """
         )
+        # ตารางประวัติการจ่ายเงิน
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS payments (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                expense_id  INTEGER NOT NULL,
+                amount      REAL    NOT NULL DEFAULT 0,
+                paid_date   TEXT    NOT NULL,   -- YYYY-MM-DD
+                installment_no INTEGER,         -- งวดที่เท่าไหร่ (ถ้าเป็นการผ่อน)
+                note        TEXT,
+                created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+                FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE
+            )
+            """
+        )
 
 
 # ---------- CRUD ----------
@@ -155,9 +170,64 @@ def increment_paid(expense_id, by=1):
     """เพิ่มจำนวนงวดที่จ่ายแล้ว (กดเมื่อจ่ายเงินจริง)"""
     with get_conn() as conn:
         conn.execute(
-            "UPDATE expenses SET paid_installments = paid_installments + ? WHERE id = ?",
+            "UPDATE expenses SET paid_installments = MAX(0, paid_installments + ?) WHERE id = ?",
             (by, expense_id),
         )
+
+
+# ---------- payments (ประวัติการจ่าย) ----------
+
+def record_payment(expense_id, amount, paid_date, installment_no=None, note=None):
+    """บันทึกการจ่าย 1 ครั้ง คืน id ของรายการที่บันทึก"""
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO payments (expense_id, amount, paid_date, installment_no, note)
+            VALUES (?,?,?,?,?)
+            """,
+            (expense_id, float(amount or 0), paid_date, installment_no, note or None),
+        )
+        return cur.lastrowid
+
+
+def list_payments(expense_id=None, limit=None):
+    """ดูประวัติการจ่าย (ทั้งหมด หรือเฉพาะรายการเดียว) พร้อมชื่อรายการ"""
+    q = (
+        "SELECT p.*, e.name AS expense_name, e.category AS category "
+        "FROM payments p LEFT JOIN expenses e ON e.id = p.expense_id"
+    )
+    params = []
+    if expense_id is not None:
+        q += " WHERE p.expense_id = ?"
+        params.append(expense_id)
+    q += " ORDER BY p.paid_date DESC, p.id DESC"
+    if limit:
+        q += " LIMIT ?"
+        params.append(limit)
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(q, params).fetchall()]
+
+
+def get_payment(payment_id):
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM payments WHERE id = ?", (payment_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def delete_payment(payment_id):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM payments WHERE id = ?", (payment_id,))
+
+
+def payment_total(expense_id=None):
+    """ยอดรวมที่จ่ายไปแล้วทั้งหมด (หรือเฉพาะรายการเดียว)"""
+    q = "SELECT COALESCE(SUM(amount),0) AS t FROM payments"
+    params = []
+    if expense_id is not None:
+        q += " WHERE expense_id = ?"
+        params.append(expense_id)
+    with get_conn() as conn:
+        return conn.execute(q, params).fetchone()["t"]
 
 
 # ---------- notify log ----------

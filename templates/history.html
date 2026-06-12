@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">
+            ประวัติการจ่าย{% if expense %} — {{ expense.name }}{% endif %}
+        </h1>
+        <p class="page-sub">บันทึกทั้งหมด {{ payments|length }} ครั้ง</p>
+    </div>
+    {% if expense %}
+    <a href="{{ url_for('history') }}" class="btn btn-small">ดูทุกรายการ</a>
+    {% endif %}
+</div>
+
+<div class="stats">
+    <div class="stat-card stat-primary">
+        <div class="stat-icon">💵</div>
+        <div class="stat-body">
+            <div class="stat-value">{{ "{:,.0f}".format(total) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-label">ยอดจ่ายสะสมทั้งหมด</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">🧾</div>
+        <div class="stat-body">
+            <div class="stat-value">{{ payments|length }}</div>
+            <div class="stat-label">จำนวนครั้งที่จ่าย</div>
+        </div>
+    </div>
+</div>
+
+{% if payments %}
+<table class="grid">
+    <thead>
+        <tr>
+            <th>วันที่</th>
+            <th>รายการ</th>
+            <th>งวด</th>
+            <th class="num">ยอด</th>
+            <th>หมายเหตุ</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in payments %}
+        <tr>
+            <td>{{ p.paid_date }}</td>
+            <td>{{ p.icon }} {{ p.expense_name or '(ถูกลบแล้ว)' }}</td>
+            <td>{% if p.installment_no %}งวด {{ p.installment_no }}{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td class="num">{{ "{:,.0f}".format(p.amount) }}</td>
+            <td>{% if p.note %}{{ p.note }}{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td class="actions">
+                <form method="post" action="{{ url_for('payment_delete', payment_id=p.id) }}" style="display:inline"
+                      onsubmit="return confirm('ลบรายการจ่ายนี้?')">
+                    <button class="btn btn-small btn-danger">ลบ</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty">
+    <div class="empty-icon">🧾</div>
+    <p>ยังไม่มีประวัติการจ่าย</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary">ไปบันทึกการจ่าย</a>
+</div>
+{% endif %}
+
+<p style="margin-top:18px"><a href="{{ url_for('index') }}" class="btn">← กลับหน้าหลัก</a></p>
+
+{% endblock %}

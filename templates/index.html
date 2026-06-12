@@ -101,11 +101,10 @@
         {% if e.note %}<div class="exp-note">{{ e.note }}</div>{% endif %}
 
         <div class="exp-actions">
-            {% if e.remaining is not none and not e.finished %}
-            <form method="post" action="{{ url_for('pay', expense_id=e.id) }}" style="display:inline">
-                <button class="btn btn-small btn-pay">✓ จ่ายแล้ว +1</button>
-            </form>
+            {% if not e.finished %}
+            <a href="{{ url_for('pay', expense_id=e.id) }}" class="btn btn-small btn-pay">✓ บันทึกจ่าย</a>
             {% endif %}
+            <a href="{{ url_for('history', expense_id=e.id) }}" class="btn btn-small">ประวัติ</a>
             <a href="{{ url_for('edit', expense_id=e.id) }}" class="btn btn-small">แก้ไข</a>
             <form method="post" action="{{ url_for('delete', expense_id=e.id) }}" style="display:inline"
                   onsubmit="return confirm('ลบรายการนี้?')">
