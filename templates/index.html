@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if not line_ready %}
+<div class="flash flash-error">
+    ⚠️ ยังไม่ได้ตั้งค่า LINE — แก้ไฟล์ <code>.env</code> ใส่ LINE_CHANNEL_ACCESS_TOKEN และ LINE_TO_USER_ID
+    (อ่านวิธีใน README.md)
+</div>
+{% endif %}
+
+<div class="summary-bar">
+    <div>
+        <div class="summary-label">รวมค่าใช้จ่ายต่อเดือน (รายการที่ใช้งานอยู่)</div>
+        <div class="summary-amount">{{ "{:,.0f}".format(monthly_total) }} บาท</div>
+    </div>
+    <div class="summary-actions">
+        <form method="post" action="{{ url_for('send_test') }}" style="display:inline">
+            <button type="submit" class="btn btn-line" {% if not line_ready %}disabled{% endif %}>
+                ส่งสรุปทดสอบเข้า LINE
+            </button>
+        </form>
+        <a href="{{ url_for('add') }}" class="btn btn-primary">+ เพิ่มรายการ</a>
+    </div>
+</div>
+
+{% if expenses %}
+<table class="grid">
+    <thead>
+        <tr>
+            <th>รายการ</th>
+            <th>ประเภท</th>
+            <th class="num">ยอด/เดือน</th>
+            <th>ครบกำหนด</th>
+            <th>งวดผ่อน</th>
+            <th>สถานะ</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for e in expenses %}
+        <tr class="{% if not e.active %}row-off{% endif %}{% if e.finished %} row-done{% endif %}">
+            <td>
+                <strong>{{ e.name }}</strong>
+                {% if e.note %}<br><small class="muted">{{ e.note }}</small>{% endif %}
+            </td>
+            <td>{{ e.category_name }}</td>
+            <td class="num">{{ "{:,.0f}".format(e.amount) }}</td>
+            <td>
+                วันที่ {{ e.due_day }}
+                {% if e.active and not e.finished %}
+                    {% if e.days_left == 0 %}
+                        <span class="badge badge-due">วันนี้!</span>
+                    {% elif e.days_left <= e.remind_days_before %}
+                        <span class="badge badge-soon">อีก {{ e.days_left }} วัน</span>
+                    {% else %}
+                        <small class="muted">อีก {{ e.days_left }} วัน</small>
+                    {% endif %}
+                {% endif %}
+            </td>
+            <td>
+                {% if e.remaining is not none %}
+                    {{ e.paid_installments }}/{{ e.total_installments }} งวด
+                    {% if e.finished %}
+                        <span class="badge badge-done">ครบแล้ว</span>
+                    {% else %}
+                        <br><small class="muted">เหลือ {{ e.remaining }} งวด</small>
+                    {% endif %}
+                {% else %}
+                    <small class="muted">รายเดือน</small>
+                {% endif %}
+            </td>
+            <td>
+                {% if e.active %}
+                    <span class="dot dot-on"></span> ใช้งาน
+                {% else %}
+                    <span class="dot dot-off"></span> ปิด
+                {% endif %}
+            </td>
+            <td class="actions">
+                {% if e.remaining is not none and not e.finished %}
+                <form method="post" action="{{ url_for('pay', expense_id=e.id) }}" style="display:inline">
+                    <button class="btn btn-small btn-pay" title="บันทึกจ่ายงวดนี้">จ่ายแล้ว +1</button>
+                </form>
+                {% endif %}
+                <a href="{{ url_for('edit', expense_id=e.id) }}" class="btn btn-small">แก้ไข</a>
+                <form method="post" action="{{ url_for('delete', expense_id=e.id) }}" style="display:inline"
+                      onsubmit="return confirm('ลบรายการนี้?')">
+                    <button class="btn btn-small btn-danger">ลบ</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty">
+    ยังไม่มีรายการค่าใช้จ่าย — <a href="{{ url_for('add') }}">เพิ่มรายการแรก</a>
+</div>
+{% endif %}
+
+{% if logs %}
+<h3 class="section-title">ประวัติการแจ้งเตือนล่าสุด</h3>
+<ul class="log-list">
+    {% for l in logs %}
+    <li><span class="muted">{{ l.sent_at }}</span> · {{ l.kind }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% endblock %}

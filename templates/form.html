@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>{{ "แก้ไขรายการ" if expense else "เพิ่มรายการค่าใช้จ่าย" }}</h2>
+
+<form method="post" class="card form">
+    <label>
+        ชื่อรายการ *
+        <input type="text" name="name" required placeholder="เช่น ค่าไฟบ้าน, ผ่อนรถ Honda"
+               value="{{ expense.name if expense else '' }}">
+    </label>
+
+    <div class="row">
+        <label>
+            ประเภท
+            <select name="category">
+                {% for key, label in categories.items() %}
+                <option value="{{ key }}" {% if expense and expense.category == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>
+            ยอดต่อเดือน (บาท) *
+            <input type="number" name="amount" step="0.01" min="0" required
+                   value="{{ expense.amount if expense else '' }}">
+        </label>
+    </div>
+
+    <div class="row">
+        <label>
+            วันครบกำหนด (วันของเดือน 1–31) *
+            <input type="number" name="due_day" min="1" max="31" required
+                   value="{{ expense.due_day if expense else 1 }}">
+        </label>
+
+        <label>
+            เตือนล่วงหน้า (วัน)
+            <input type="number" name="remind_days_before" min="0" max="31"
+                   value="{{ expense.remind_days_before if expense else default_remind }}">
+        </label>
+    </div>
+
+    <fieldset class="installment-box">
+        <legend>สำหรับการผ่อน (เว้นว่างถ้าเป็นค่าน้ำ/ค่าไฟ รายเดือนไม่จำกัด)</legend>
+        <div class="row">
+            <label>
+                จำนวนงวดทั้งหมด
+                <input type="number" name="total_installments" min="1" placeholder="เช่น 48"
+                       value="{{ expense.total_installments if expense and expense.total_installments else '' }}">
+            </label>
+            <label>
+                จ่ายไปแล้ว (งวด)
+                <input type="number" name="paid_installments" min="0"
+                       value="{{ expense.paid_installments if expense else 0 }}">
+            </label>
+            <label>
+                วันเริ่มผ่อน
+                <input type="date" name="start_date"
+                       value="{{ expense.start_date if expense and expense.start_date else '' }}">
+            </label>
+        </div>
+    </fieldset>
+
+    <label>
+        หมายเหตุ
+        <input type="text" name="note" placeholder="ข้อมูลเพิ่มเติม (ไม่บังคับ)"
+               value="{{ expense.note if expense and expense.note else '' }}">
+    </label>
+
+    <label class="checkbox">
+        <input type="checkbox" name="active" {% if not expense or expense.active %}checked{% endif %}>
+        เปิดใช้งานการแจ้งเตือน
+    </label>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">บันทึก</button>
+        <a href="{{ url_for('index') }}" class="btn">ยกเลิก</a>
+    </div>
+</form>
+
+{% endblock %}

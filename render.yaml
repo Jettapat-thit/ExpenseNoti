@@ -1,0 +1,34 @@
+# Render Blueprint — deploy ด้วยการเชื่อม GitHub repo แล้ว Render จะอ่านไฟล์นี้เอง
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: expensenoti
+    runtime: python
+    plan: starter            # $7/เดือน — จำเป็นเพราะต้องใช้ persistent disk
+    buildCommand: pip install -r requirements.txt
+    # ใช้ worker เดียว เพื่อไม่ให้ scheduler รันซ้ำหลาย process
+    startCommand: gunicorn app:app --workers 1 --bind 0.0.0.0:$PORT --timeout 120
+    disk:
+      name: data
+      mountPath: /data       # ไฟล์ SQLite เก็บที่นี่ ไม่หายเวลา redeploy
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_PATH
+        value: /data/expenses.db
+      - key: RUN_SCHEDULER     # เปิด background scheduler ในตัวเว็บ
+        value: "1"
+      - key: NOTIFY_HOUR       # เวลาส่งแจ้งเตือนรายวัน (24 ชม.)
+        value: "8"
+      - key: NOTIFY_MINUTE
+        value: "0"
+      - key: SUMMARY_DAY       # วันของเดือนที่ส่งสรุปรวม
+        value: "1"
+      - key: TIMEZONE
+        value: Asia/Bangkok
+      - key: SECRET_KEY
+        generateValue: true
+      # ใส่ค่าจริง 2 ตัวนี้ในหน้า Dashboard ของ Render (อย่า commit ลง repo)
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_TO_USER_ID
+        sync: false

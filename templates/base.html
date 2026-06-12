@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ระบบแจ้งเตือนค่าใช้จ่าย{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="wrap">
+            <a href="{{ url_for('index') }}" class="logo">💸 ExpenseNoti</a>
+            <nav>
+                <a href="{{ url_for('index') }}">รายการ</a>
+                <a href="{{ url_for('add') }}">+ เพิ่ม</a>
+                <a href="{{ url_for('preview') }}">ดูตัวอย่างแจ้งเตือน</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="wrap">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="wrap">
+        <small>แจ้งเตือนผ่าน LINE Messaging API · เก็บข้อมูลในเครื่องด้วย SQLite</small>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>ตัวอย่างข้อความแจ้งเตือน (วันนี้)</h2>
+<p class="muted">นี่คือข้อความที่ระบบจะส่งเข้า LINE — ยังไม่ได้ส่งจริง</p>
+
+<h3 class="section-title">สรุปรวมรายเดือน</h3>
+{% if summary %}
+<pre class="line-bubble">{{ summary }}</pre>
+{% else %}
+<p class="muted">ยังไม่มีรายการสำหรับสรุป</p>
+{% endif %}
+
+<h3 class="section-title">เตือนใกล้/ถึงกำหนดวันนี้</h3>
+{% if reminders %}
+    {% for r in reminders %}
+    <pre class="line-bubble">{{ r.message }}</pre>
+    {% endfor %}
+{% else %}
+<p class="muted">วันนี้ไม่มีรายการที่ใกล้ครบกำหนด</p>
+{% endif %}
+
+<p><a href="{{ url_for('index') }}" class="btn">← กลับ</a></p>
+
+{% endblock %}
