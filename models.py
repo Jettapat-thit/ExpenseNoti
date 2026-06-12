@@ -117,6 +117,32 @@ def init_db():
             """
         )
 
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS budgets (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id   INTEGER NOT NULL,
+                category  TEXT    NOT NULL,
+                amount    REAL    NOT NULL DEFAULT 0,
+                UNIQUE(user_id, category)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS goals (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id              INTEGER NOT NULL,
+                name                 TEXT    NOT NULL,
+                icon                 TEXT    NOT NULL DEFAULT '🎯',
+                target_amount        REAL    NOT NULL DEFAULT 0,
+                saved_amount         REAL    NOT NULL DEFAULT 0,
+                monthly_contribution REAL    NOT NULL DEFAULT 0,
+                created_at           TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+            """
+        )
+
         # ---- migration จากสคีมาเดิม (single-user) ----
         _add_column_if_missing(conn, "expenses", "user_id", "INTEGER NOT NULL DEFAULT 0")
         _add_column_if_missing(conn, "expenses", "type", "TEXT NOT NULL DEFAULT 'expense'")
@@ -424,6 +450,141 @@ def scheduled_totals(user_id):
     income = round(d.get("income", 0), 2)
     expense = round(d.get("expense", 0), 2)
     return {"income": income, "expense": expense, "net": round(income - expense, 2)}
+
+
+# ---------- งบประมาณรายหมวด ----------
+
+def set_budget(user_id, category, amount):
+    """ตั้ง/แก้งบของหมวด (amount<=0 = ลบงบ)"""
+    with get_conn() as conn:
+        if float(amount or 0) <= 0:
+            conn.execute("DELETE FROM budgets WHERE user_id=? AND category=?", (user_id, category))
+        else:
+            conn.execute(
+                "INSERT INTO budgets (user_id, category, amount) VALUES (?,?,?) "
+                "ON CONFLICT(user_id, category) DO UPDATE SET amount=excluded.amount",
+                (user_id, category, float(amount)),
+            )
+
+
+def budget_status(user_id, ym=None):
+    """
+    สถานะงบแต่ละหมวดของเดือน (เทียบกับยอดจ่ายจริง)
+    คืน list ของ {category, label, icon, limit, spent, pct, over, remaining}
+    """
+    ym = ym or date.today().strftime("%Y-%m")
+    cats = {c["key"]: c for c in get_categories(user_id)}
+    with get_conn() as conn:
+        budgets = conn.execute(
+            "SELECT category, amount FROM budgets WHERE user_id=?", (user_id,)
+        ).fetchall()
+        spent_rows = conn.execute(
+            """
+            SELECT COALESCE(e.category,'other') AS category, COALESCE(SUM(p.amount),0) AS spent
+            FROM payments p LEFT JOIN expenses e ON e.id = p.expense_id
+            WHERE p.user_id=? AND substr(p.paid_date,1,7)=?
+            GROUP BY e.category
+            """,
+            (user_id, ym),
+        ).fetchall()
+    spent_map = {r["category"]: r["spent"] for r in spent_rows}
+    out = []
+    for b in budgets:
+        cat = b["category"]
+        limit = round(b["amount"], 2)
+        spent = round(spent_map.get(cat, 0), 2)
+        c = cats.get(cat, {})
+        out.append({
+            "category": cat,
+            "label": c.get("label", cat),
+            "icon": c.get("icon", "📌"),
+            "limit": limit,
+            "spent": spent,
+            "pct": round(100 * spent / limit) if limit else 0,
+            "over": spent > limit,
+            "remaining": round(limit - spent, 2),
+        })
+    out.sort(key=lambda x: -x["pct"])
+    return out
+
+
+def total_budget(user_id):
+    with get_conn() as conn:
+        return conn.execute(
+            "SELECT COALESCE(SUM(amount),0) AS t FROM budgets WHERE user_id=?", (user_id,)
+        ).fetchone()["t"]
+
+
+# ---------- เป้าหมายการออม ----------
+
+def list_goals(user_id):
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM goals WHERE user_id=? ORDER BY id", (user_id,)
+        ).fetchall()]
+
+
+def get_goal(user_id, goal_id):
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM goals WHERE id=? AND user_id=?", (goal_id, user_id)).fetchone()
+        return dict(row) if row else None
+
+
+def create_goal(user_id, name, target_amount, monthly_contribution=0, saved_amount=0, icon="🎯"):
+    with get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO goals (user_id, name, icon, target_amount, saved_amount, monthly_contribution) "
+            "VALUES (?,?,?,?,?,?)",
+            (user_id, name, icon or "🎯", float(target_amount or 0),
+             float(saved_amount or 0), float(monthly_contribution or 0)),
+        )
+        return cur.lastrowid
+
+
+def update_goal(user_id, goal_id, name, target_amount, monthly_contribution, icon="🎯"):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE goals SET name=?, icon=?, target_amount=?, monthly_contribution=? WHERE id=? AND user_id=?",
+            (name, icon or "🎯", float(target_amount or 0), float(monthly_contribution or 0), goal_id, user_id),
+        )
+
+
+def add_goal_contribution(user_id, goal_id, amount):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE goals SET saved_amount = MAX(0, saved_amount + ?) WHERE id=? AND user_id=?",
+            (float(amount or 0), goal_id, user_id),
+        )
+
+
+def delete_goal(user_id, goal_id):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM goals WHERE id=? AND user_id=?", (goal_id, user_id))
+
+
+def total_monthly_savings(user_id):
+    with get_conn() as conn:
+        return conn.execute(
+            "SELECT COALESCE(SUM(monthly_contribution),0) AS t FROM goals WHERE user_id=?", (user_id,)
+        ).fetchone()["t"]
+
+
+# ---------- Safe to Spend (เหลือใช้ได้) ----------
+
+def safe_to_spend(user_id):
+    """
+    เหลือใช้ได้ = รายรับรายเดือน − บิล/รายจ่ายตามแผน − เงินออมต่อเดือน
+    (บิลใช้ยอดตามแผนของรายการ active ที่ไม่ใช่ยอดแปรผัน)
+    """
+    sched = scheduled_totals(user_id)
+    savings = round(total_monthly_savings(user_id), 2)
+    safe = round(sched["income"] - sched["expense"] - savings, 2)
+    return {
+        "income": sched["income"],
+        "expense": sched["expense"],
+        "savings": savings,
+        "safe": safe,
+    }
 
 
 # ---------- notify log (ต่อ user) ----------

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">เป้าหมายการออม</h1>
+        <p class="page-sub">ตั้งใจออมรวม {{ "{:,.0f}".format(monthly_total) }} บาท/เดือน</p>
+    </div>
+</div>
+
+<form method="post" class="card form" style="margin-bottom:22px">
+    <div class="row" style="align-items:flex-end">
+        <label style="flex:.6">
+            ไอคอน
+            <input type="text" name="icon" maxlength="4" placeholder="🎯">
+        </label>
+        <label style="flex:2">
+            ชื่อเป้าหมาย *
+            <input type="text" name="name" required placeholder="เช่น เงินฉุกเฉิน, เที่ยวญี่ปุ่น">
+        </label>
+        <label style="flex:1">
+            เป้าหมาย (บาท) *
+            <input type="number" name="target_amount" min="0" required placeholder="50000">
+        </label>
+    </div>
+    <div class="row" style="align-items:flex-end">
+        <label style="flex:1">
+            ออมต่อเดือน (บาท)
+            <input type="number" name="monthly_contribution" min="0" placeholder="3000">
+        </label>
+        <label style="flex:1">
+            มีอยู่แล้ว (บาท)
+            <input type="number" name="saved_amount" min="0" placeholder="0">
+        </label>
+        <button type="submit" class="btn btn-primary" style="margin-bottom:16px">+ เพิ่มเป้าหมาย</button>
+    </div>
+</form>
+
+{% if goals %}
+<div class="cards">
+    {% for g in goals %}
+    <div class="exp-card {% if g.done %}is-done{% endif %}">
+        <div class="exp-top">
+            <div class="exp-icon">{{ g.icon }}</div>
+            <div class="exp-name">
+                <strong>{{ g.name }}</strong>
+                <span class="exp-cat">
+                    {% if g.done %}สำเร็จแล้ว 🎉
+                    {% elif g.months_left %}อีก ~{{ g.months_left }} เดือน
+                    {% else %}ออม {{ "{:,.0f}".format(g.monthly_contribution) }}/เดือน{% endif %}
+                </span>
+            </div>
+            <div class="exp-amount">{{ g.pct }}%</div>
+        </div>
+
+        <div class="exp-progress">
+            <div class="progress-head">
+                <span>{{ "{:,.0f}".format(g.saved_amount) }} / {{ "{:,.0f}".format(g.target_amount) }} บาท</span>
+                {% if not g.done %}<span class="muted">เหลือ {{ "{:,.0f}".format(g.remaining) }}</span>{% endif %}
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" style="width: {{ 100 if g.pct > 100 else g.pct }}%"></div>
+            </div>
+        </div>
+
+        <div class="exp-actions">
+            <form method="post" action="{{ url_for('goal_contribute', goal_id=g.id) }}" class="contrib-form">
+                <input type="number" name="amount" min="1" placeholder="ออมเพิ่ม" required>
+                <button class="btn btn-small btn-pay">+ ออม</button>
+            </form>
+            <form method="post" action="{{ url_for('goal_delete', goal_id=g.id) }}" style="display:inline"
+                  onsubmit="return confirm('ลบเป้าหมายนี้?')">
+                <button class="btn btn-small btn-danger">ลบ</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty"><div class="empty-icon">🎯</div><p>ยังไม่มีเป้าหมายการออม</p></div>
+{% endif %}
+
+{% endblock %}

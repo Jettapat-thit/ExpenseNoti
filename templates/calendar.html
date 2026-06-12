@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">ปฏิทินครบกำหนด</h1>
+        <p class="page-sub">{{ month_name }} {{ year }}</p>
+    </div>
+    <div class="page-actions">
+        <a href="{{ url_for('calendar_view', y=prev_m[0], m=prev_m[1]) }}" class="btn btn-small">‹ ก่อนหน้า</a>
+        <a href="{{ url_for('calendar_view') }}" class="btn btn-small">เดือนนี้</a>
+        <a href="{{ url_for('calendar_view', y=next_m[0], m=next_m[1]) }}" class="btn btn-small">ถัดไป ›</a>
+    </div>
+</div>
+
+<div class="cal-legend">
+    <span><i class="dot-c overdue"></i> เลยกำหนด</span>
+    <span><i class="dot-c due"></i> วันนี้</span>
+    <span><i class="dot-c soon"></i> ใกล้ถึง</span>
+    <span><i class="dot-c later"></i> ยังไม่ถึง</span>
+</div>
+
+<div class="calendar">
+    <div class="cal-grid cal-head">
+        {% for d in ['อา','จ','อ','พ','พฤ','ศ','ส'] %}<div class="cal-dow">{{ d }}</div>{% endfor %}
+    </div>
+    {% for week in weeks %}
+    <div class="cal-grid">
+        {% for c in week %}
+        <div class="cal-cell {% if not c.in_month %}cal-out{% endif %} {% if c.is_today %}cal-today{% endif %}">
+            <div class="cal-day">{{ c.date.day }}</div>
+            {% for it in c['items'] %}
+            <div class="cal-item {{ c.status }}" title="{{ it.name }}{% if not it.variable %} · {{ '{:,.0f}'.format(it.amount) }} บาท{% endif %}">
+                {{ it.icon }} {{ it.name }}{% if not it.variable %} <span class="cal-amt">{{ "{:,.0f}".format(it.amount) }}</span>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">งบประมาณรายหมวด</h1>
+        <p class="page-sub">เดือน {{ today.month }}/{{ today.year }} · งบรวม {{ "{:,.0f}".format(total_limit) }} บาท</p>
+    </div>
+</div>
+
+<form method="post" class="card form" style="margin-bottom:22px">
+    <div class="row" style="align-items:flex-end">
+        <label style="flex:2">
+            หมวด
+            <select name="category">
+                {% for c in avail %}
+                <option value="{{ c.key }}">{{ c.icon }} {{ c.label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label style="flex:1">
+            งบต่อเดือน (บาท)
+            <input type="number" name="amount" min="0" step="1" required placeholder="เช่น 3000">
+        </label>
+        <button type="submit" class="btn btn-primary" style="margin-bottom:16px">ตั้งงบ</button>
+    </div>
+    {% if not avail %}<p class="muted" style="margin:0">ตั้งงบครบทุกหมวดแล้ว</p>{% endif %}
+</form>
+
+{% if status %}
+<div class="budget-list">
+    {% for b in status %}
+    <div class="budget-row {% if b.over %}over{% endif %}">
+        <div class="budget-head">
+            <span class="budget-name">{{ b.icon }} {{ b.label }}</span>
+            <span class="budget-num">
+                {{ "{:,.0f}".format(b.spent) }} / {{ "{:,.0f}".format(b.limit) }} บาท
+                {% if b.over %}<span class="badge badge-due">เกินงบ {{ "{:,.0f}".format(-b.remaining) }}</span>
+                {% else %}<span class="muted">เหลือ {{ "{:,.0f}".format(b.remaining) }}</span>{% endif %}
+            </span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill {% if b.over %}fill-over{% elif b.pct >= 80 %}fill-warn{% endif %}"
+                 style="width: {{ 100 if b.pct > 100 else b.pct }}%"></div>
+        </div>
+        <div class="budget-foot">
+            <span class="muted">{{ b.pct }}% ของงบ</span>
+            <form method="post" action="{{ url_for('budget_delete', category=b.category) }}"
+                  onsubmit="return confirm('ลบงบหมวดนี้?')">
+                <button class="btn btn-small btn-danger">ลบงบ</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty"><div class="empty-icon">🎯</div><p>ยังไม่ได้ตั้งงบ — เลือกหมวดแล้วใส่จำนวนด้านบน</p></div>
+{% endif %}
+
+{% endblock %}

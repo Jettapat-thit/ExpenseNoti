@@ -147,6 +147,7 @@ def index():
         monthly_total=expense_total, income_total=income_total,
         net_total=income_total - expense_total, has_income=bool(income_view),
         active_count=active_count, upcoming_count=upcoming_count,
+        sts=models.safe_to_spend(uid),
         line_ready=line_client.is_configured(),
         logs=models.recent_logs(uid, 10), today=today,
     )
@@ -206,6 +207,24 @@ def pay(expense_id):
         flash(f"บันทึกการจ่าย {expense['name']} แล้ว", "success")
         return redirect(url_for("index"))
     return render_template("pay.html", expense=expense, today=date.today())
+
+
+@app.route("/quickpay/<int:expense_id>", methods=["POST"])
+@login_required
+def quickpay(expense_id):
+    """จ่ายเร็วแตะเดียว — บันทึกจ่ายยอดปกติ + วันนี้ทันที (ไม่เปิดฟอร์ม)"""
+    uid = session["uid"]
+    expense = models.get_expense(uid, expense_id)
+    if not expense:
+        abort(404)
+    installment_no = None
+    if expense.get("total_installments"):
+        installment_no = int(expense.get("paid_installments", 0)) + 1
+        models.increment_paid(uid, expense_id, 1)
+    models.record_payment(uid, expense_id, expense["amount"], date.today().isoformat(),
+                          installment_no, "จ่ายเร็ว")
+    flash(f"บันทึกจ่าย {expense['name']} {expense['amount']:,.0f} บาทแล้ว", "success")
+    return redirect(request.referrer or url_for("index"))
 
 
 @app.route("/history")
@@ -352,6 +371,144 @@ def send_test():
     except line_client.LineError as exc:
         flash(f"ส่งไม่สำเร็จ: {exc} (อย่าลืมแอดบอทเป็นเพื่อนใน LINE)", "error")
     return redirect(url_for("index"))
+
+
+# ---------- งบประมาณ ----------
+
+@app.route("/budgets", methods=["GET", "POST"])
+@login_required
+def budgets():
+    uid = session["uid"]
+    if request.method == "POST":
+        category = request.form.get("category")
+        amount = request.form.get("amount", 0)
+        if category:
+            models.set_budget(uid, category, amount)
+            flash("บันทึกงบแล้ว", "success")
+        return redirect(url_for("budgets"))
+    status = models.budget_status(uid)
+    budgeted = {s["category"] for s in status}
+    # หมวดรายจ่ายที่ยังไม่ได้ตั้งงบ (ไว้ให้เลือกเพิ่ม)
+    avail = [c for c in models.get_categories(uid, kind="expense") if c["key"] not in budgeted]
+    return render_template("budgets.html", status=status, avail=avail,
+                           total_limit=models.total_budget(uid), today=date.today())
+
+
+@app.route("/budgets/delete/<category>", methods=["POST"])
+@login_required
+def budget_delete(category):
+    models.set_budget(session["uid"], category, 0)
+    flash("ลบงบหมวดนี้แล้ว", "success")
+    return redirect(url_for("budgets"))
+
+
+# ---------- เป้าหมายการออม ----------
+
+@app.route("/goals", methods=["GET", "POST"])
+@login_required
+def goals():
+    uid = session["uid"]
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        if name:
+            models.create_goal(
+                uid, name,
+                request.form.get("target_amount", 0),
+                request.form.get("monthly_contribution", 0),
+                request.form.get("saved_amount", 0),
+                request.form.get("icon", "🎯").strip() or "🎯",
+            )
+            flash(f"เพิ่มเป้าหมาย {name} แล้ว", "success")
+        return redirect(url_for("goals"))
+    goal_list = models.list_goals(uid)
+    for g in goal_list:
+        tgt = g["target_amount"] or 0
+        g["pct"] = round(100 * g["saved_amount"] / tgt) if tgt else 0
+        g["remaining"] = round(max(0, tgt - g["saved_amount"]), 2)
+        g["done"] = g["saved_amount"] >= tgt and tgt > 0
+        if g["monthly_contribution"] and g["remaining"] > 0:
+            import math
+            g["months_left"] = math.ceil(g["remaining"] / g["monthly_contribution"])
+        else:
+            g["months_left"] = None
+    return render_template("goals.html", goals=goal_list,
+                           monthly_total=models.total_monthly_savings(uid))
+
+
+@app.route("/goals/contribute/<int:goal_id>", methods=["POST"])
+@login_required
+def goal_contribute(goal_id):
+    amount = request.form.get("amount", 0)
+    models.add_goal_contribution(session["uid"], goal_id, amount)
+    flash("บันทึกเงินออมแล้ว", "success")
+    return redirect(url_for("goals"))
+
+
+@app.route("/goals/delete/<int:goal_id>", methods=["POST"])
+@login_required
+def goal_delete(goal_id):
+    models.delete_goal(session["uid"], goal_id)
+    flash("ลบเป้าหมายแล้ว", "success")
+    return redirect(url_for("goals"))
+
+
+# ---------- ปฏิทินครบกำหนด ----------
+
+@app.route("/calendar")
+@login_required
+def calendar_view():
+    import calendar as _cal
+    uid = session["uid"]
+    today = date.today()
+    try:
+        year = int(request.args.get("y", today.year))
+        month = int(request.args.get("m", today.month))
+    except (TypeError, ValueError):
+        year, month = today.year, today.month
+
+    cat_icons = models.icon_map(uid)
+    # รวมรายการรายจ่าย active ที่ครบกำหนดในเดือนนี้ ตามวัน
+    items_by_day = {}
+    last = _cal.monthrange(year, month)[1]
+    for e in models.list_expenses(uid, active_only=True):
+        if e.get("type") == "income" or notifier.is_finished(e):
+            continue
+        d = min(int(e["due_day"]), last)
+        items_by_day.setdefault(d, []).append({
+            "name": e["name"],
+            "icon": cat_icons.get(e["category"], "📌"),
+            "amount": e["amount"],
+            "variable": bool(e.get("variable_amount")),
+        })
+
+    cal = _cal.Calendar(firstweekday=6)  # เริ่มวันอาทิตย์
+    weeks = []
+    for week in cal.monthdatescalendar(year, month):
+        cells = []
+        for d in week:
+            in_month = (d.month == month)
+            day_items = items_by_day.get(d.day, []) if in_month else []
+            if in_month and day_items:
+                if d < today:
+                    status = "overdue"
+                elif d == today:
+                    status = "due"
+                elif (d - today).days <= 3:
+                    status = "soon"
+                else:
+                    status = "later"
+            else:
+                status = ""
+            cells.append({"date": d, "in_month": in_month, "items": day_items,
+                          "is_today": d == today, "status": status})
+        weeks.append(cells)
+
+    prev_m = (year - 1, 12) if month == 1 else (year, month - 1)
+    next_m = (year + 1, 1) if month == 12 else (year, month + 1)
+    th_months = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+                 "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
+    return render_template("calendar.html", weeks=weeks, year=year, month=month,
+                           month_name=th_months[month], prev_m=prev_m, next_m=next_m, today=today)
 
 
 def _form_to_data(form):

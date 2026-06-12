@@ -61,9 +61,15 @@
     {% if e.note %}<div class="exp-note">{{ e.note }}</div>{% endif %}
 
     <div class="exp-actions">
+        {% if not e.finished and not is_income and not e.variable_amount and e.amount %}
+        <form method="post" action="{{ url_for('quickpay', expense_id=e.id) }}" style="display:inline"
+              onsubmit="return confirm('บันทึกจ่าย {{ e.name }} {{ '{:,.0f}'.format(e.amount) }} บาท วันนี้?')">
+            <button class="btn btn-small btn-quick" title="จ่ายยอดปกติวันนี้ทันที">⚡ จ่ายเร็ว</button>
+        </form>
+        {% endif %}
         {% if not e.finished %}
         <a href="{{ url_for('pay', expense_id=e.id) }}" class="btn btn-small btn-pay">
-            {% if is_income %}✓ บันทึกรับ{% else %}✓ บันทึกจ่าย{% endif %}
+            {% if is_income %}✓ บันทึกรับ{% else %}✓ บันทึก{% endif %}
         </a>
         {% endif %}
         <a href="{{ url_for('history', expense_id=e.id) }}" class="btn btn-small">ประวัติ</a>
@@ -144,6 +150,19 @@
         </div>
     </div>
 </div>
+
+{% if sts.income or sts.savings %}
+<div class="safe-bar {% if sts.safe < 0 %}safe-neg{% endif %}">
+    <div class="safe-main">
+        <span class="safe-label">💵 เหลือใช้ได้เดือนนี้</span>
+        <span class="safe-value">{{ "{:,.0f}".format(sts.safe) }} บาท</span>
+    </div>
+    <div class="safe-calc">
+        รายรับ {{ "{:,.0f}".format(sts.income) }} − บิล {{ "{:,.0f}".format(sts.expense) }}
+        {% if sts.savings %}− ออม {{ "{:,.0f}".format(sts.savings) }}{% endif %}
+    </div>
+</div>
+{% endif %}
 
 {% if incomes %}
 <h3 class="section-head">💰 รายรับ</h3>

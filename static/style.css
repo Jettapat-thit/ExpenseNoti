@@ -221,6 +221,58 @@ h2 { margin-top: 0; }
 .chart-row .pos { color: var(--green-dark); }
 @media (max-width: 720px) { .chart-row { grid-template-columns: 1fr; } }
 
+/* safe to spend */
+.safe-bar { background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); color: #fff;
+    border-radius: 16px; padding: 16px 20px; margin-bottom: 22px; box-shadow: var(--shadow); }
+.safe-bar.safe-neg { background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); }
+.safe-main { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.safe-label { font-size: .95rem; font-weight: 600; }
+.safe-value { font-size: 1.5rem; font-weight: 800; }
+.safe-calc { font-size: .82rem; opacity: .9; margin-top: 4px; }
+
+/* quick pay */
+.btn-quick { color: #92400e; border-color: #fde68a; background: #fffbeb; }
+.btn-quick:hover { background: #fef3c7; }
+
+/* budgets */
+.budget-list { display: flex; flex-direction: column; gap: 14px; }
+.budget-row { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 18px; box-shadow: var(--shadow); }
+.budget-row.over { border-color: #fca5a5; }
+.budget-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    flex-wrap: wrap; margin-bottom: 10px; }
+.budget-name { font-weight: 700; }
+.budget-num { font-size: .9rem; }
+.budget-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.progress-fill.fill-warn { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.progress-fill.fill-over { background: linear-gradient(90deg, #dc2626, #f87171); }
+
+/* goals contribution form */
+.contrib-form { display: flex; gap: 6px; align-items: center; }
+.contrib-form input { width: 90px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; font-size: .85rem; }
+
+/* calendar */
+.cal-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: .82rem; color: var(--muted); margin-bottom: 12px; }
+.dot-c { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin-right: 4px; }
+.dot-c.overdue { background: #dc2626; } .dot-c.due { background: #f59e0b; }
+.dot-c.soon { background: #facc15; } .dot-c.later { background: #94a3b8; }
+.calendar { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal-head { background: #fafafa; border-bottom: 1px solid var(--border); }
+.cal-dow { text-align: center; padding: 10px 0; font-size: .82rem; font-weight: 700; color: var(--muted); }
+.cal-cell { min-height: 92px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 5px; }
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-out { background: #fafafa; opacity: .5; }
+.cal-today { background: #eff6ff; }
+.cal-day { font-size: .8rem; font-weight: 700; margin-bottom: 3px; }
+.cal-today .cal-day { color: var(--blue); }
+.cal-item { font-size: .72rem; padding: 2px 5px; border-radius: 5px; margin-bottom: 3px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; border-left: 3px solid #94a3b8; background: #f1f5f9; }
+.cal-item.overdue { border-color: #dc2626; background: #fee2e2; }
+.cal-item.due { border-color: #f59e0b; background: #fef3c7; }
+.cal-item.soon { border-color: #facc15; background: #fefce8; }
+.cal-amt { color: var(--muted); }
+
 /* preview bubble */
 .line-bubble { background: #d8f6c4; border-radius: 16px; padding: 14px 18px; max-width: 480px;
     white-space: pre-wrap; font-family: inherit; font-size: .92rem; margin: 10px 0; border: 1px solid #b7e89a; }
@@ -271,6 +323,13 @@ h2 { margin-top: 0; }
     /* ปุ่มในการ์ดแตะง่ายขึ้น */
     .exp-actions { gap: 6px; }
     .btn-small { padding: 8px 12px; font-size: .85rem; }
+
+    /* ปฏิทินบนมือถือ — เล็กลง โชว์เป็นจุดแทนข้อความยาว */
+    .cal-cell { min-height: 60px; padding: 3px; }
+    .cal-dow { padding: 7px 0; font-size: .72rem; }
+    .cal-item { font-size: 0; padding: 0; height: 6px; border-radius: 3px; border-left: none; margin-bottom: 2px; }
+    .cal-amt { display: none; }
+    .safe-value { font-size: 1.3rem; }
 }
 
 @media (max-width: 380px) {
