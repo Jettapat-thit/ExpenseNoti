@@ -110,8 +110,9 @@ def index():
     today = date.today()
     cat_map = models.category_map(uid)
     ico_map = models.icon_map(uid)
+    paid_ids = models.paid_expense_ids(uid)   # รายการที่จ่ายแล้วเดือนนี้
 
-    expense_view, income_view = [], []
+    unpaid_view, paid_view, income_view = [], [], []
     expense_total = income_total = 0.0
     active_count = upcoming_count = 0
     for e in expenses:
@@ -120,6 +121,7 @@ def index():
         finished = notifier.is_finished(e)
         days_left = (due - today).days
         is_income = e.get("type") == "income"
+        is_paid = e["id"] in paid_ids
         if bool(e["active"]) and not finished:
             active_count += 1
             if is_income:
@@ -127,7 +129,7 @@ def index():
             else:
                 if not e.get("variable_amount"):
                     expense_total += float(e["amount"])
-                if days_left <= int(e.get("remind_days_before", 3)):
+                if not is_paid and days_left <= int(e.get("remind_days_before", 3)):
                     upcoming_count += 1
         progress = None
         if e.get("total_installments"):
@@ -137,16 +139,27 @@ def index():
             "category_name": cat_map.get(e["category"], e["category"]),
             "icon": ico_map.get(e["category"], "💰" if is_income else "📌"),
             "next_due": due, "days_left": days_left, "remaining": rem,
-            "finished": finished, "progress": progress,
+            "finished": finished, "progress": progress, "paid": is_paid,
         }
-        (income_view if is_income else expense_view).append(row)
+        if is_income:
+            income_view.append(row)
+        elif is_paid:
+            paid_view.append(row)
+        else:
+            unpaid_view.append(row)
+
+    # นับเฉพาะรายจ่ายที่ใช้งานอยู่ (ไม่รวมรายการปิด/ผ่อนครบ) สำหรับ checklist
+    active_expenses = [r for r in (unpaid_view + paid_view) if r["active"] and not r["finished"]]
+    paid_count = sum(1 for r in active_expenses if r["paid"])
+    expense_count = len(active_expenses)
 
     return render_template(
         "index.html",
-        expenses=expense_view, incomes=income_view,
+        unpaid=unpaid_view, paid=paid_view, incomes=income_view,
         monthly_total=expense_total, income_total=income_total,
         net_total=income_total - expense_total, has_income=bool(income_view),
         active_count=active_count, upcoming_count=upcoming_count,
+        paid_count=paid_count, expense_count=expense_count,
         sts=models.safe_to_spend(uid),
         line_ready=line_client.is_configured(),
         logs=models.recent_logs(uid, 10), today=today,

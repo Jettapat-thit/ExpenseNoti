@@ -382,6 +382,17 @@ def delete_payment(user_id, payment_id):
         conn.execute("DELETE FROM payments WHERE id=? AND user_id=?", (payment_id, user_id))
 
 
+def paid_expense_ids(user_id, ym=None):
+    """คืน set ของ expense_id ที่มีการบันทึกจ่ายในเดือนนั้น (ใช้ทำ checklist จ่ายแล้ว/ยังไม่จ่าย)"""
+    ym = ym or date.today().strftime("%Y-%m")
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT expense_id FROM payments WHERE user_id=? AND substr(paid_date,1,7)=?",
+            (user_id, ym),
+        ).fetchall()
+    return {r["expense_id"] for r in rows}
+
+
 def payment_total(user_id, expense_id=None):
     q = "SELECT COALESCE(SUM(amount),0) AS t FROM payments WHERE user_id = ?"
     params = [user_id]

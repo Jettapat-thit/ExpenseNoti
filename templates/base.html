@@ -50,6 +50,26 @@
         <small>แจ้งเตือนผ่าน LINE Messaging API · เก็บข้อมูลด้วย SQLite</small>
     </footer>
 
+    {% if user %}
+    <nav class="bottom-nav">
+        <a href="{{ url_for('index') }}" class="bn-item {% if request.endpoint == 'index' %}active{% endif %}">
+            <span class="bn-ico">🏠</span><span class="bn-label">หน้าหลัก</span>
+        </a>
+        <a href="{{ url_for('calendar_view') }}" class="bn-item {% if request.endpoint == 'calendar_view' %}active{% endif %}">
+            <span class="bn-ico">📅</span><span class="bn-label">ปฏิทิน</span>
+        </a>
+        <a href="{{ url_for('add') }}" class="bn-item bn-add">
+            <span class="bn-plus">+</span>
+        </a>
+        <a href="{{ url_for('stats') }}" class="bn-item {% if request.endpoint == 'stats' %}active{% endif %}">
+            <span class="bn-ico">📊</span><span class="bn-label">สถิติ</span>
+        </a>
+        <button type="button" class="bn-item" id="bnMenu">
+            <span class="bn-ico">☰</span><span class="bn-label">เมนู</span>
+        </button>
+    </nav>
+    {% endif %}
+
     <script>
     (function(){
         var t = document.getElementById('navToggle');
@@ -60,6 +80,12 @@
             t.classList.toggle('open', open);
             t.setAttribute('aria-expanded', open ? 'true' : 'false');
         });
+    })();
+    (function(){
+        var b = document.getElementById('bnMenu');
+        var n = document.getElementById('mainNav');
+        if(!b || !n) return;
+        b.addEventListener('click', function(){ n.classList.toggle('open'); });
     })();
     </script>
 </body>
