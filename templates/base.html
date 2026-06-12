@@ -3,27 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ระบบแจ้งเตือนค่าใช้จ่าย{% endblock %}</title>
+    <title>{% block title %}Spendly — เตือนค่าใช้จ่ายรายเดือน{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <header>
         <div class="wrap">
-            <a href="{{ url_for('index') if user else url_for('login') }}" class="logo">💸 ExpenseNoti</a>
+            <a href="{{ url_for('index') if user else url_for('login') }}" class="logo">💸 Spendly</a>
             {% if user %}
-            <nav>
+            <button class="nav-toggle" id="navToggle" aria-label="เปิดเมนู" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <nav class="main-nav" id="mainNav">
                 <a href="{{ url_for('index') }}">รายการ</a>
-                <a href="{{ url_for('add') }}">+ เพิ่ม</a>
+                <a href="{{ url_for('add') }}">เพิ่มรายการ</a>
                 <a href="{{ url_for('stats') }}">สถิติ</a>
                 <a href="{{ url_for('history') }}">ประวัติ</a>
                 <a href="{{ url_for('categories') }}">หมวดหมู่</a>
                 <a href="{{ url_for('settings') }}">ตั้งค่า</a>
+                <div class="user-box">
+                    {% if user.picture_url %}<img src="{{ user.picture_url }}" class="avatar" alt="">{% endif %}
+                    <span class="user-name">{{ user.display_name or 'ผู้ใช้' }}</span>
+                    <a href="{{ url_for('logout') }}" class="logout" title="ออกจากระบบ">ออก</a>
+                </div>
             </nav>
-            <div class="user-box">
-                {% if user.picture_url %}<img src="{{ user.picture_url }}" class="avatar" alt="">{% endif %}
-                <span class="user-name">{{ user.display_name or 'ผู้ใช้' }}</span>
-                <a href="{{ url_for('logout') }}" class="logout" title="ออกจากระบบ">ออก</a>
-            </div>
             {% endif %}
         </div>
     </header>
@@ -41,7 +44,20 @@
     </main>
 
     <footer class="wrap">
-        <small>แจ้งเตือนผ่าน LINE Messaging API · เก็บข้อมูลในเครื่องด้วย SQLite</small>
+        <small>แจ้งเตือนผ่าน LINE Messaging API · เก็บข้อมูลด้วย SQLite</small>
     </footer>
+
+    <script>
+    (function(){
+        var t = document.getElementById('navToggle');
+        var n = document.getElementById('mainNav');
+        if(!t || !n) return;
+        t.addEventListener('click', function(){
+            var open = n.classList.toggle('open');
+            t.classList.toggle('open', open);
+            t.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+    })();
+    </script>
 </body>
 </html>

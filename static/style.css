@@ -36,10 +36,18 @@ header {
 }
 header .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
 .logo { font-weight: 800; font-size: 1.2rem; text-decoration: none; color: var(--text); letter-spacing: -.02em; }
-nav a { margin-left: 20px; text-decoration: none; color: var(--muted); font-size: .94rem; font-weight: 500; transition: color .15s; }
-nav a:hover { color: var(--green); }
+.main-nav { display: flex; align-items: center; gap: 4px; }
+.main-nav > a { padding: 8px 12px; text-decoration: none; color: var(--muted); font-size: .94rem; font-weight: 500; border-radius: 8px; transition: color .15s, background .15s; }
+.main-nav > a:hover { color: var(--green); background: #f3f4f6; }
 
-.user-box { display: flex; align-items: center; gap: 8px; }
+/* hamburger (มือถือ) */
+.nav-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; flex-direction: column; gap: 5px; }
+.nav-toggle span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; transition: .25s; }
+.nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-toggle.open span:nth-child(2) { opacity: 0; }
+.nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+.user-box { display: flex; align-items: center; gap: 8px; margin-left: 10px; padding-left: 12px; border-left: 1px solid var(--border); }
 .avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
 .avatar-lg { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; }
 .user-name { font-size: .9rem; font-weight: 600; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -217,7 +225,61 @@ h2 { margin-top: 0; }
 .line-bubble { background: #d8f6c4; border-radius: 16px; padding: 14px 18px; max-width: 480px;
     white-space: pre-wrap; font-family: inherit; font-size: .92rem; margin: 10px 0; border: 1px solid #b7e89a; }
 
-@media (max-width: 720px) {
+/* ===== มือถือ ===== */
+@media (max-width: 760px) {
+    .wrap { padding: 0 14px; }
+    main { padding: 18px 14px 90px; }   /* เผื่อที่ให้ bottom safe area */
+
+    /* เมนูแฮมเบอร์เกอร์ */
+    .nav-toggle { display: flex; }
+    .main-nav {
+        display: none;
+        position: absolute; top: 60px; left: 0; right: 0;
+        flex-direction: column; align-items: stretch; gap: 0;
+        background: var(--card); border-bottom: 1px solid var(--border);
+        box-shadow: var(--shadow-lg); padding: 6px 14px 14px;
+    }
+    .main-nav.open { display: flex; }
+    .main-nav > a { padding: 14px 8px; border-bottom: 1px solid var(--border); font-size: 1rem; border-radius: 0; }
+    .user-box { margin: 12px 0 0; padding: 12px 0 0; border-left: none; border-top: 1px solid var(--border); }
+    .user-name { max-width: none; flex: 1; }
+    .logout { margin-left: auto; }
+
+    /* การ์ดสถิติ 2 คอลัมน์ */
+    .stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-card { padding: 14px; border-radius: 14px; }
+    .stat-value { font-size: 1.25rem; }
+    .stat-icon { font-size: 1.4rem; }
+
+    /* การ์ดรายการเต็มความกว้าง */
+    .cards { grid-template-columns: 1fr; gap: 12px; }
+    .exp-card { border-radius: 14px; }
+
+    /* page head ซ้อนแนวตั้ง + ปุ่มเต็มกว้าง */
+    .page-head { flex-direction: column; align-items: stretch; }
+    .page-actions { display: flex; }
+    .page-actions .btn, .page-actions form { flex: 1; }
+    .page-actions .btn { justify-content: center; width: 100%; }
+    .page-title { font-size: 1.3rem; }
+
+    /* ฟอร์มซ้อนแนวตั้ง */
+    .row { flex-direction: column; gap: 0; }
+    .form-actions { flex-direction: column; }
+    .form-actions .btn { width: 100%; justify-content: center; }
+    .card { padding: 18px; }
+
+    /* ปุ่มในการ์ดแตะง่ายขึ้น */
+    .exp-actions { gap: 6px; }
+    .btn-small { padding: 8px 12px; font-size: .85rem; }
+}
+
+@media (max-width: 380px) {
     .stats { grid-template-columns: 1fr; }
-    .page-title { font-size: 1.35rem; }
+}
+
+/* กัน iOS ซูมอัตโนมัติตอนโฟกัสช่องกรอก (ต้อง >=16px) */
+@media (max-width: 760px) {
+    .form input[type=text], .form input[type=number], .form input[type=date], .form select {
+        font-size: 16px;
+    }
 }
