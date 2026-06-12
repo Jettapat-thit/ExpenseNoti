@@ -31,25 +31,40 @@ def index():
     # คำนวณข้อมูลเพิ่มเติมสำหรับแสดงผล
     view = []
     monthly_total = 0.0
+    active_count = 0
+    upcoming_count = 0
     for e in expenses:
         due = notifier.next_due_date(e["due_day"], today)
         rem = notifier.remaining_installments(e)
         finished = notifier.is_finished(e)
-        if e["active"] and not finished:
+        days_left = (due - today).days
+        is_live = bool(e["active"]) and not finished
+        if is_live:
             monthly_total += float(e["amount"])
+            active_count += 1
+            if days_left <= int(e.get("remind_days_before", 3)):
+                upcoming_count += 1
+        # เปอร์เซ็นต์ความคืบหน้าการผ่อน
+        progress = None
+        if e.get("total_installments"):
+            progress = round(100 * int(e.get("paid_installments", 0)) / int(e["total_installments"]))
         view.append({
             **e,
             "category_name": models.CATEGORIES.get(e["category"], e["category"]),
+            "icon": models.CATEGORY_ICONS.get(e["category"], "📌"),
             "next_due": due,
-            "days_left": (due - today).days,
+            "days_left": days_left,
             "remaining": rem,
             "finished": finished,
+            "progress": progress,
         })
 
     return render_template(
         "index.html",
         expenses=view,
         monthly_total=monthly_total,
+        active_count=active_count,
+        upcoming_count=upcoming_count,
         categories=models.CATEGORIES,
         line_ready=line_client.is_configured(),
         logs=models.recent_logs(10),

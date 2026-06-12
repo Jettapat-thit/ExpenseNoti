@@ -19,6 +19,18 @@ CATEGORIES = {
     "other": "อื่น ๆ",
 }
 
+# ไอคอน emoji ของแต่ละหมวด (ใช้แสดงผลในหน้าเว็บ)
+CATEGORY_ICONS = {
+    "utility_water": "💧",
+    "utility_power": "⚡",
+    "utility_other": "🏠",
+    "loan_house": "🏡",
+    "loan_car": "🚗",
+    "installment": "📱",
+    "subscription": "🔁",
+    "other": "📌",
+}
+
 
 @contextmanager
 def get_conn():
