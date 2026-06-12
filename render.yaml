@@ -17,18 +17,18 @@ services:
         value: /data/expenses.db
       - key: RUN_SCHEDULER     # เปิด background scheduler ในตัวเว็บ
         value: "1"
-      - key: NOTIFY_HOUR       # เวลาส่งแจ้งเตือนรายวัน (24 ชม.)
-        value: "8"
-      - key: NOTIFY_MINUTE
+      - key: NOTIFY_MINUTE     # นาทีที่เช็คทุกชั่วโมง (ส่งตามเวลาที่แต่ละ user ตั้ง)
         value: "0"
-      - key: SUMMARY_DAY       # วันของเดือนที่ส่งสรุปรวม
-        value: "1"
       - key: TIMEZONE
         value: Asia/Bangkok
+      - key: BASE_URL          # URL จริงของแอป (ใช้ทำ redirect URI ของ LINE Login)
+        value: https://expensenoti.onrender.com
       - key: SECRET_KEY
         generateValue: true
-      # ใส่ค่าจริง 2 ตัวนี้ในหน้า Dashboard ของ Render (อย่า commit ลง repo)
-      - key: LINE_CHANNEL_ACCESS_TOKEN
+      # ใส่ค่าจริงเหล่านี้ในหน้า Dashboard ของ Render (อย่า commit ลง repo)
+      - key: LINE_CHANNEL_ACCESS_TOKEN   # จาก Messaging API channel
         sync: false
-      - key: LINE_TO_USER_ID
+      - key: LINE_LOGIN_CHANNEL_ID       # จาก LINE Login channel
+        sync: false
+      - key: LINE_LOGIN_CHANNEL_SECRET
         sync: false

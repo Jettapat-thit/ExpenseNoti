@@ -19,13 +19,18 @@ if _env_file.exists():
 # ฐานข้อมูล
 DATABASE_PATH = os.environ.get("DATABASE_PATH", str(BASE_DIR / "expenses.db"))
 
-# LINE Messaging API
-# 1) สร้าง Provider + Messaging API channel ที่ https://developers.line.biz/console/
-# 2) คัดลอก Channel access token (long-lived) มาใส่ที่นี่
-# 3) หา User ID ของผู้รับ (เพิ่มบอทเป็นเพื่อน แล้วดูจาก webhook หรือใช้ /me)
+# LINE Messaging API (บอทที่ใช้ส่งแจ้งเตือน — token เดียวร่วมกันทุก user)
+# ส่ง push ไปหาแต่ละ user โดยใช้ line_user_id ของคนนั้นเป็นปลายทาง
 # .strip() กันกรณี paste แล้วมีช่องว่าง/ขึ้นบรรทัดติดมา (สาเหตุ 401 ที่พบบ่อย)
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "").strip()
+# (สำรองสำหรับโหมด single-user เดิม — multi-user ไม่ใช้แล้ว)
 LINE_TO_USER_ID = os.environ.get("LINE_TO_USER_ID", "").strip()
+
+# LINE Login (OAuth) — สร้าง LINE Login channel ใน provider เดียวกับ Messaging API
+LINE_LOGIN_CHANNEL_ID = os.environ.get("LINE_LOGIN_CHANNEL_ID", "").strip()
+LINE_LOGIN_CHANNEL_SECRET = os.environ.get("LINE_LOGIN_CHANNEL_SECRET", "").strip()
+# URL หลักของเว็บ (ใช้ประกอบ redirect URI = BASE_URL + /callback)
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:5000").rstrip("/")
 
 # จำนวนวันก่อนถึงกำหนดที่จะเริ่มเตือน (ค่าเริ่มต้น)
 DEFAULT_REMIND_DAYS_BEFORE = int(os.environ.get("DEFAULT_REMIND_DAYS_BEFORE", "3"))

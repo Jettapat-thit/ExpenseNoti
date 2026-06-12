@@ -51,44 +51,61 @@ def _fmt_baht(amount):
 
 # ---------- สร้างข้อความ ----------
 
-def build_monthly_summary(today=None):
-    """สร้างข้อความสรุปรวมค่าใช้จ่ายทั้งหมดของเดือน"""
+def build_monthly_summary(user_id, today=None):
+    """สร้างข้อความสรุปรวมรายรับ-รายจ่ายของเดือน (ต่อ user)"""
     today = today or date.today()
-    expenses = [e for e in models.list_expenses(active_only=True) if not is_finished(e)]
-    expenses.sort(key=lambda e: e["due_day"])
+    cat_map = models.category_map(user_id)
+    items = [e for e in models.list_expenses(user_id, active_only=True) if not is_finished(e)]
+    expenses = sorted([e for e in items if e.get("type", "expense") != "income"], key=lambda e: e["due_day"])
+    incomes = sorted([e for e in items if e.get("type") == "income"], key=lambda e: e["due_day"])
 
-    if not expenses:
+    if not expenses and not incomes:
         return None
 
-    lines = [f"📊 สรุปค่าใช้จ่ายเดือน {today.month}/{today.year}", ""]
-    total = 0.0
-    for e in expenses:
-        total += float(e["amount"])
-        cat = models.CATEGORIES.get(e["category"], e["category"])
-        line = f"• {e['name']} ({cat})  {_fmt_baht(e['amount'])} บาท — ครบกำหนดวันที่ {e['due_day']}"
-        rem = remaining_installments(e)
-        if rem is not None:
-            paid = int(e.get("paid_installments", 0))
-            total_inst = int(e["total_installments"])
-            line += f"\n   └ งวด {paid + 1}/{total_inst} (เหลืออีก {rem} งวด)"
-        lines.append(line)
+    lines = [f"📊 สรุปรายรับ-รายจ่ายเดือน {today.month}/{today.year}", ""]
 
-    lines.append("")
-    lines.append(f"💰 รวมทั้งสิ้น {_fmt_baht(total)} บาท/เดือน")
+    expense_total = 0.0
+    if expenses:
+        for e in expenses:
+            cat = cat_map.get(e["category"], e["category"])
+            if e.get("variable_amount"):
+                line = f"• {e['name']} ({cat})  ยอดแล้วแต่บิล — ครบกำหนดวันที่ {e['due_day']}"
+            else:
+                expense_total += float(e["amount"])
+                line = f"• {e['name']} ({cat})  {_fmt_baht(e['amount'])} บาท — ครบกำหนดวันที่ {e['due_day']}"
+            rem = remaining_installments(e)
+            if rem is not None:
+                paid = int(e.get("paid_installments", 0))
+                total_inst = int(e["total_installments"])
+                line += f"\n   └ งวด {paid + 1}/{total_inst} (เหลืออีก {rem} งวด)"
+            lines.append(line)
+        lines.append("")
+        lines.append(f"💸 รายจ่ายรวม {_fmt_baht(expense_total)} บาท")
+
+    income_total = 0.0
+    if incomes:
+        lines.append("")
+        for e in incomes:
+            income_total += float(e["amount"])
+            cat = cat_map.get(e["category"], e["category"])
+            lines.append(f"• {e['name']} ({cat})  +{_fmt_baht(e['amount'])} บาท")
+        lines.append(f"💰 รายรับรวม {_fmt_baht(income_total)} บาท")
+
+    if incomes:
+        net = income_total - expense_total
+        sign = "เหลือ" if net >= 0 else "ขาด"
+        lines.append("")
+        lines.append(f"🧮 คงเหลือสุทธิ {sign} {_fmt_baht(abs(net))} บาท/เดือน")
     return "\n".join(lines)
 
 
-def build_due_reminders(today=None):
-    """
-    สร้างรายการเตือน — แยกเป็น
-      - due_today: ครบกำหนดวันนี้
-      - upcoming: ใกล้ครบกำหนด (ภายใน remind_days_before)
-    คืน list ของ dict: {kind, exp, due, days_left, message}
-    """
+def build_due_reminders(user_id, today=None):
+    """สร้างรายการเตือนของ user — due_today / upcoming"""
     today = today or date.today()
+    cat_map = models.category_map(user_id)
     out = []
-    for e in models.list_expenses(active_only=True):
-        if is_finished(e):
+    for e in models.list_expenses(user_id, active_only=True):
+        if is_finished(e) or e.get("type") == "income":
             continue
         due = next_due_date(e["due_day"], today)
         days_left = (due - today).days
@@ -101,7 +118,7 @@ def build_due_reminders(today=None):
         else:
             continue
 
-        cat = models.CATEGORIES.get(e["category"], e["category"])
+        cat = cat_map.get(e["category"], e["category"])
         rem = remaining_installments(e)
         inst_txt = ""
         if rem is not None:
@@ -113,10 +130,14 @@ def build_due_reminders(today=None):
         else:
             head = f"🔔 อีก {days_left} วันครบกำหนด"
 
+        if e.get("variable_amount"):
+            amount_txt = "💳 เช็คยอดบิลแล้วกรอกตอนจ่าย"
+        else:
+            amount_txt = f"ยอด {_fmt_baht(e['amount'])} บาท"
         msg = (
             f"{head}\n"
             f"{e['name']} ({cat}){inst_txt}\n"
-            f"ยอด {_fmt_baht(e['amount'])} บาท — กำหนด {due.day}/{due.month}/{due.year}"
+            f"{amount_txt} — กำหนด {due.day}/{due.month}/{due.year}"
         )
         out.append({
             "kind": kind, "exp": e, "due": due,
@@ -129,39 +150,57 @@ def build_due_reminders(today=None):
 
 # ---------- ตัวสั่งงาน (เรียกโดย scheduler) ----------
 
-def run_daily(today=None, send=True, summary_day=1, dry_run=False):
+def run_daily_for_user(user, today=None, send=True, dry_run=False):
     """
-    ฟังก์ชันหลักที่รันทุกวัน:
-      - วันที่ = summary_day  -> ส่งสรุปรวมรายเดือน (เดือนละครั้ง)
-      - ทุกวัน               -> ส่งเตือนใกล้ครบกำหนด / ครบกำหนดวันนี้
-    มีการกันส่งซ้ำด้วย notify_log
-    คืน list ข้อความที่ส่ง (หรือจะส่ง)
+    รันแจ้งเตือนของ user คนเดียว ส่ง push ไปยัง line_user_id ของเขา
+    - วันที่ == summary_day ของ user -> ส่งสรุปรวมรายเดือน
+    - ทุกวัน -> เตือนใกล้/ถึงกำหนด
+    กันส่งซ้ำด้วย notify_log (แยกตาม user)
     """
     today = today or date.today()
+    uid = user["id"]
+    to = user.get("line_user_id")
+    summary_day = int(user.get("summary_day", 1) or 1)
     sent_messages = []
 
     def _maybe_send(kind, ref_key, message):
-        if models.already_sent(ref_key):
+        if models.already_sent(uid, ref_key):
             return
         if dry_run:
-            sent_messages.append({"kind": kind, "ref_key": ref_key, "message": message, "status": "dry_run"})
+            sent_messages.append({"user": uid, "kind": kind, "message": message, "status": "dry_run"})
             return
         if send:
-            line_client.send_push(message)
-            models.record_sent(kind, ref_key, message)
-        sent_messages.append({"kind": kind, "ref_key": ref_key, "message": message, "status": "sent"})
+            line_client.send_push(message, to_user_id=to)
+            models.record_sent(uid, kind, ref_key, message)
+        sent_messages.append({"user": uid, "kind": kind, "message": message, "status": "sent"})
 
-    # 1) สรุปรวมรายเดือน
     if today.day == summary_day:
-        summary = build_monthly_summary(today)
+        summary = build_monthly_summary(uid, today)
         if summary:
             ref = f"{today.year}-{today.month:02d}|summary"
             _maybe_send("monthly_summary", ref, summary)
 
-    # 2) เตือนรายรายการ
-    for item in build_due_reminders(today):
+    for item in build_due_reminders(uid, today):
         e = item["exp"]
         ref = f"{item['due'].isoformat()}|{e['id']}|{item['kind']}"
         _maybe_send(item["kind"], ref, item["message"])
 
     return sent_messages
+
+
+def run_daily_all(today=None, send=True, dry_run=False, at_hour=None):
+    """
+    วนทุก user แล้วส่งแจ้งเตือนให้แต่ละคน (ใช้โดย scheduler)
+    ถ้าระบุ at_hour จะส่งเฉพาะ user ที่ตั้งเวลาแจ้งเตือน (notify_hour) ตรงกับชั่วโมงนั้น
+    """
+    results = []
+    for user in models.list_users():
+        if not user.get("line_user_id"):
+            continue
+        if at_hour is not None and int(user.get("notify_hour", 8) or 8) != int(at_hour):
+            continue
+        try:
+            results += run_daily_for_user(user, today=today, send=send, dry_run=dry_run)
+        except Exception as exc:  # ไม่ให้ user คนเดียวล้มทั้งระบบ
+            results.append({"user": user["id"], "kind": "error", "message": str(exc), "status": "error"})
+    return results

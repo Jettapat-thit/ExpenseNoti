@@ -40,30 +40,49 @@ git push -u origin main
 3. Render จะอ่านไฟล์ **`render.yaml`** แล้วตั้งค่าให้อัตโนมัติ (service + disk + env)
 4. กด **Apply**
 
-### 3) ใส่ค่า LINE (ค่าลับ)
-ในหน้า service → แท็บ **Environment** → กรอก 2 ตัวที่ยังว่าง:
-- `LINE_CHANNEL_ACCESS_TOKEN` = token จาก LINE
-- `LINE_TO_USER_ID` = User ID ของคุณ (ขึ้นต้นด้วย U)
+### 3) สร้าง LINE Login channel (สำหรับให้ผู้ใช้ล็อกอิน)
+ระบบนี้รองรับหลายผู้ใช้ — แต่ละคนล็อกอินด้วย LINE แล้วข้อมูลแยกเป็นส่วนตัว
+
+1. เข้า https://developers.line.biz/console/ → provider เดิม (อันเดียวกับ Messaging API)
+2. **Create a new channel → LINE Login**
+3. ในแท็บ **LINE Login** → ตั้ง **Callback URL** เป็น:
+   `https://<your-app>.onrender.com/callback`  (และ `http://localhost:5000/callback` ถ้าจะรันในเครื่องด้วย)
+4. ในแท็บ **Basic settings** จดค่า **Channel ID** และ **Channel secret** ของ Login channel นี้
+5. (แนะนำ) แท็บ LINE Login → เปิด **Linked LINE Official Account** ให้เชื่อมกับบอท Messaging API
+   เพื่อให้ตอนล็อกอินผู้ใช้ถูกชวนแอดบอท จะได้ส่งแจ้งเตือนได้
+
+### 4) ใส่ค่า env (ค่าลับ)
+ในหน้า service → แท็บ **Environment** → กรอกที่ยังว่าง:
+- `LINE_CHANNEL_ACCESS_TOKEN` = token จาก **Messaging API** channel
+- `LINE_LOGIN_CHANNEL_ID` = Channel ID จาก **LINE Login** channel
+- `LINE_LOGIN_CHANNEL_SECRET` = Channel secret จาก **LINE Login** channel
+- `BASE_URL` = URL จริงของแอป เช่น `https://expensenoti.onrender.com` (ต้องตรงกับ Callback URL)
 
 กด **Save** แล้ว Render จะ deploy ใหม่ให้เอง
 
-### 4) เสร็จ — เปิดใช้งาน
-- เปิด URL ที่ Render ให้ (เช่น `https://expensenoti.onrender.com`) → เพิ่มรายการได้เลย
-- กด **"ส่งสรุปทดสอบเข้า LINE"** เพื่อเช็คว่าตั้งค่าถูก
-- ระบบจะส่งแจ้งเตือนอัตโนมัติทุกวันเวลา 08:00 (ปรับได้ด้วย env `NOTIFY_HOUR`)
+### 5) เสร็จ — เปิดใช้งาน
+- เปิด URL ที่ Render ให้ → กด **"เข้าสู่ระบบด้วย LINE"** → อนุญาต → เริ่มเพิ่มรายการได้เลย
+- กด **"ส่งสรุปเข้า LINE"** เพื่อเช็คว่าส่งแจ้งเตือนได้ (ต้องแอดบอทเป็นเพื่อนก่อน)
+- ตั้งเวลาแจ้งเตือนของแต่ละคนได้ที่หน้า **ตั้งค่า**
 
 ---
 
-## ตารางตัวแปร (env vars) ที่ปรับได้
+## ตารางตัวแปร (env vars)
 
 | ตัวแปร | ความหมาย | ค่าเริ่มต้น |
 |---|---|---|
-| `NOTIFY_HOUR` | เวลาส่งแจ้งเตือนรายวัน (0–23) | 8 |
-| `NOTIFY_MINUTE` | นาที | 0 |
-| `SUMMARY_DAY` | วันของเดือนที่ส่งสรุปรวม | 1 |
+| `LINE_CHANNEL_ACCESS_TOKEN` | token บอทส่งแจ้งเตือน (ลับ) | — |
+| `LINE_LOGIN_CHANNEL_ID` | Channel ID ของ LINE Login | — |
+| `LINE_LOGIN_CHANNEL_SECRET` | Channel secret ของ LINE Login (ลับ) | — |
+| `BASE_URL` | URL จริงของแอป (ทำ redirect URI) | http://localhost:5000 |
+| `SECRET_KEY` | กุญแจเข้ารหัส session | (สุ่มให้) |
+| `NOTIFY_MINUTE` | นาทีที่เช็คทุกชั่วโมง | 0 |
 | `TIMEZONE` | โซนเวลา | Asia/Bangkok |
 | `DATABASE_PATH` | ที่เก็บไฟล์ SQLite | /data/expenses.db |
 | `RUN_SCHEDULER` | เปิดตัวแจ้งเตือนในแอป (1=เปิด) | 1 |
+
+> เวลาส่งแจ้งเตือนและวันสรุปรายเดือน ตั้งแยกรายคนได้ในหน้า **ตั้งค่า** ของแต่ละ user
+> (scheduler เช็คทุกชั่วโมงแล้วส่งให้คนที่ตั้งเวลาตรงกับชั่วโมงนั้น)
 
 ---
 

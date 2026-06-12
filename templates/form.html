@@ -1,39 +1,53 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>{{ "แก้ไขรายการ" if expense else "เพิ่มรายการค่าใช้จ่าย" }}</h2>
+<h2>{{ "แก้ไขรายการ" if expense else "เพิ่มรายการ" }}</h2>
 
-<form method="post" class="card form">
+<form method="post" class="card form" id="expform">
     <label>
         ชื่อรายการ *
-        <input type="text" name="name" required placeholder="เช่น ค่าไฟบ้าน, ผ่อนรถ Honda"
+        <input type="text" name="name" required placeholder="เช่น ค่าไฟบ้าน, ผ่อนรถ, บัตรเครดิต KTC"
                value="{{ expense.name if expense else '' }}">
     </label>
 
     <div class="row">
         <label>
             ประเภท
-            <select name="category">
-                {% for key, label in categories.items() %}
-                <option value="{{ key }}" {% if expense and expense.category == key %}selected{% endif %}>{{ label }}</option>
+            <select name="type" id="type-select">
+                <option value="expense" {% if not expense or expense.type != 'income' %}selected{% endif %}>รายจ่าย</option>
+                <option value="income" {% if expense and expense.type == 'income' %}selected{% endif %}>รายรับ</option>
+            </select>
+        </label>
+        <label>
+            หมวดหมู่
+            <select name="category" id="cat-select">
+                {% for c in categories %}
+                <option value="{{ c.key }}" data-type="{{ c.type }}"
+                    {% if expense and expense.category == c.key %}selected{% endif %}>
+                    {{ c.icon }} {{ c.label }}
+                </option>
                 {% endfor %}
             </select>
         </label>
-
-        <label>
-            ยอดต่อเดือน (บาท) *
-            <input type="number" name="amount" step="0.01" min="0" required
-                   value="{{ expense.amount if expense else '' }}">
-        </label>
     </div>
 
+    <label class="checkbox" style="margin-bottom:10px">
+        <input type="checkbox" name="variable_amount" id="var-check"
+               {% if expense and expense.variable_amount %}checked{% endif %}>
+        ยอดไม่กำหนดล่วงหน้า (เช่น บัตรเครดิต) — เตือนตามกำหนด แล้วกรอกยอดจริงตอนจ่าย
+    </label>
+
     <div class="row">
+        <label id="amount-label">
+            ยอดต่อเดือน (บาท)
+            <input type="number" name="amount" step="0.01" min="0"
+                   value="{{ expense.amount if expense else '' }}">
+        </label>
         <label>
-            วันครบกำหนด (วันของเดือน 1–31) *
+            ครบกำหนด / วันรับเงิน (วันของเดือน 1–31) *
             <input type="number" name="due_day" min="1" max="31" required
                    value="{{ expense.due_day if expense else 1 }}">
         </label>
-
         <label>
             เตือนล่วงหน้า (วัน)
             <input type="number" name="remind_days_before" min="0" max="31"
@@ -41,8 +55,8 @@
         </label>
     </div>
 
-    <fieldset class="installment-box">
-        <legend>สำหรับการผ่อน (เว้นว่างถ้าเป็นค่าน้ำ/ค่าไฟ รายเดือนไม่จำกัด)</legend>
+    <fieldset class="installment-box" id="inst-box">
+        <legend>สำหรับการผ่อน (เว้นว่างถ้าเป็นรายเดือนไม่จำกัด)</legend>
         <div class="row">
             <label>
                 จำนวนงวดทั้งหมด
@@ -78,5 +92,41 @@
         <a href="{{ url_for('index') }}" class="btn">ยกเลิก</a>
     </div>
 </form>
+
+<script>
+(function(){
+    var typeSel = document.getElementById('type-select');
+    var catSel  = document.getElementById('cat-select');
+    var varChk  = document.getElementById('var-check');
+    var instBox = document.getElementById('inst-box');
+    var amtLabel= document.getElementById('amount-label');
+    var amtInput= amtLabel.querySelector('input');
+
+    function syncCats(){
+        var t = typeSel.value;
+        var firstVisible = null;
+        Array.prototype.forEach.call(catSel.options, function(o){
+            var show = o.getAttribute('data-type') === t;
+            o.hidden = !show;
+            o.disabled = !show;
+            if(show && firstVisible === null) firstVisible = o;
+        });
+        if(catSel.selectedOptions.length === 0 || catSel.selectedOptions[0].hidden){
+            if(firstVisible) firstVisible.selected = true;
+        }
+        // รายรับซ่อนช่องผ่อน
+        instBox.style.display = (t === 'income') ? 'none' : '';
+    }
+    function syncVar(){
+        // ยอดแปรผัน -> ไม่ต้องกรอกยอด
+        amtInput.disabled = varChk.checked;
+        amtLabel.style.opacity = varChk.checked ? .45 : 1;
+        if(varChk.checked) amtInput.value = '';
+    }
+    typeSel.addEventListener('change', syncCats);
+    varChk.addEventListener('change', syncVar);
+    syncCats(); syncVar();
+})();
+</script>
 
 {% endblock %}

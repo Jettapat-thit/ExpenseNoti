@@ -9,13 +9,22 @@
 <body>
     <header>
         <div class="wrap">
-            <a href="{{ url_for('index') }}" class="logo">💸 ExpenseNoti</a>
+            <a href="{{ url_for('index') if user else url_for('login') }}" class="logo">💸 ExpenseNoti</a>
+            {% if user %}
             <nav>
                 <a href="{{ url_for('index') }}">รายการ</a>
                 <a href="{{ url_for('add') }}">+ เพิ่ม</a>
-                <a href="{{ url_for('history') }}">ประวัติการจ่าย</a>
-                <a href="{{ url_for('preview') }}">ดูตัวอย่างแจ้งเตือน</a>
+                <a href="{{ url_for('stats') }}">สถิติ</a>
+                <a href="{{ url_for('history') }}">ประวัติ</a>
+                <a href="{{ url_for('categories') }}">หมวดหมู่</a>
+                <a href="{{ url_for('settings') }}">ตั้งค่า</a>
             </nav>
+            <div class="user-box">
+                {% if user.picture_url %}<img src="{{ user.picture_url }}" class="avatar" alt="">{% endif %}
+                <span class="user-name">{{ user.display_name or 'ผู้ใช้' }}</span>
+                <a href="{{ url_for('logout') }}" class="logout" title="ออกจากระบบ">ออก</a>
+            </div>
+            {% endif %}
         </div>
     </header>
 

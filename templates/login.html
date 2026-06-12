@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="login-wrap">
+    <div class="login-card">
+        <div class="login-logo">💸</div>
+        <h1 class="login-title">ExpenseNoti</h1>
+        <p class="login-sub">ระบบเตือนค่าใช้จ่ายรายเดือนผ่าน LINE<br>เข้าสู่ระบบด้วยบัญชี LINE ของคุณ — ข้อมูลแยกเป็นส่วนตัว</p>
+
+        {% if login_ready %}
+        <a href="{{ url_for('login_start') }}" class="btn-line-login">
+            <span class="line-ico">LINE</span> เข้าสู่ระบบด้วย LINE
+        </a>
+        <p class="login-note">ระบบจะชวนให้แอดบอทเป็นเพื่อน เพื่อให้ส่งแจ้งเตือนเข้า LINE ของคุณได้</p>
+        {% else %}
+        <div class="flash flash-error" style="text-align:left">
+            ⚠️ ยังไม่ได้ตั้งค่า LINE Login บนเซิร์ฟเวอร์<br>
+            ต้องตั้ง <code>LINE_LOGIN_CHANNEL_ID</code>, <code>LINE_LOGIN_CHANNEL_SECRET</code> และ <code>BASE_URL</code>
+            (ดูวิธีใน DEPLOY.md)
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

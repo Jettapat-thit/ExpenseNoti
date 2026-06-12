@@ -8,7 +8,9 @@
         <label>
             ยอดที่จ่ายจริง (บาท) *
             <input type="number" name="amount" step="0.01" min="0" required
-                   value="{{ expense.amount }}">
+                   placeholder="{% if expense.variable_amount %}กรอกยอดจากบิล{% endif %}"
+                   value="{{ '' if expense.variable_amount else expense.amount }}">
+            {% if expense.variable_amount %}<small class="muted">รายการนี้ยอดไม่กำหนดล่วงหน้า — กรอกยอดจริงจากบิล</small>{% endif %}
         </label>
         <label>
             วันที่จ่าย *

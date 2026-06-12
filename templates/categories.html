@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">หมวดหมู่</h1>
+        <p class="page-sub">เพิ่ม/แก้หมวดเองได้ — ใช้ตอนเพิ่มรายการรายรับ-รายจ่าย</p>
+    </div>
+</div>
+
+<form method="post" class="card form" style="margin-bottom:24px">
+    <div class="row" style="align-items:flex-end">
+        <label style="flex:2">
+            ชื่อหมวด *
+            <input type="text" name="label" required placeholder="เช่น ค่าเทอมลูก, ค่าเน็ต">
+        </label>
+        <label style="flex:1">
+            ไอคอน (emoji)
+            <input type="text" name="icon" maxlength="4" placeholder="📌">
+        </label>
+        <label style="flex:1">
+            ชนิด
+            <select name="type">
+                <option value="expense">รายจ่าย</option>
+                <option value="income">รายรับ</option>
+            </select>
+        </label>
+        <button type="submit" class="btn btn-primary" style="margin-bottom:16px">+ เพิ่มหมวด</button>
+    </div>
+</form>
+
+{% set expense_cats = categories | selectattr('type','equalto','expense') | list %}
+{% set income_cats  = categories | selectattr('type','equalto','income')  | list %}
+
+<h3 class="section-head">💸 หมวดรายจ่าย</h3>
+<div class="cat-grid">
+    {% for c in expense_cats %}
+    <div class="cat-chip">
+        <span class="cat-ico">{{ c.icon }}</span>
+        <span class="cat-label">{{ c.label }}</span>
+        <form method="post" action="{{ url_for('category_delete', key=c.key) }}"
+              onsubmit="return confirm('ลบหมวด {{ c.label }}?')">
+            <button class="cat-del" title="ลบ">✕</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+
+<h3 class="section-head">💰 หมวดรายรับ</h3>
+<div class="cat-grid">
+    {% for c in income_cats %}
+    <div class="cat-chip">
+        <span class="cat-ico">{{ c.icon }}</span>
+        <span class="cat-label">{{ c.label }}</span>
+        <form method="post" action="{{ url_for('category_delete', key=c.key) }}"
+              onsubmit="return confirm('ลบหมวด {{ c.label }}?')">
+            <button class="cat-del" title="ลบ">✕</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+
+<p class="muted" style="margin-top:18px;font-size:.85rem">
+    * ลบหมวดที่ยังมีรายการใช้อยู่ไม่ได้ — ต้องย้ายรายการไปหมวดอื่นก่อน
+</p>
+
+{% endblock %}

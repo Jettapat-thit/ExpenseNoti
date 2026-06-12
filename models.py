@@ -1,35 +1,29 @@
 """
-ชั้นจัดการฐานข้อมูล SQLite สำหรับรายการค่าใช้จ่าย
+ชั้นจัดการฐานข้อมูล SQLite — แบบหลายผู้ใช้ (multi-user)
+ทุกตารางผูกกับ user_id และทุกฟังก์ชันต้องส่ง user_id เพื่อแยกข้อมูลของแต่ละคน
+ผู้ใช้ผูกกับบัญชี LINE ผ่าน line_user_id
 """
 import sqlite3
-from datetime import date, datetime
+from datetime import date
 from contextlib import contextmanager
 
 import config
 
-# ประเภทค่าใช้จ่ายที่รองรับ (key -> ชื่อแสดงผล)
-CATEGORIES = {
-    "utility_water": "ค่าน้ำ",
-    "utility_power": "ค่าไฟ",
-    "utility_other": "ค่าสาธารณูปโภคอื่น",
-    "loan_house": "ผ่อนบ้าน",
-    "loan_car": "ผ่อนรถ",
-    "installment": "ผ่อนสินค้า",
-    "subscription": "ค่าบริการรายเดือน",
-    "other": "อื่น ๆ",
-}
-
-# ไอคอน emoji ของแต่ละหมวด (ใช้แสดงผลในหน้าเว็บ)
-CATEGORY_ICONS = {
-    "utility_water": "💧",
-    "utility_power": "⚡",
-    "utility_other": "🏠",
-    "loan_house": "🏡",
-    "loan_car": "🚗",
-    "installment": "📱",
-    "subscription": "🔁",
-    "other": "📌",
-}
+# หมวดหมู่เริ่มต้น (seed ให้ user ใหม่แต่ละคน) — (key, ชื่อ, ไอคอน, ชนิด, ลำดับ)
+DEFAULT_CATEGORIES = [
+    ("utility_water", "ค่าน้ำ", "💧", "expense", 10),
+    ("utility_power", "ค่าไฟ", "⚡", "expense", 20),
+    ("utility_other", "ค่าสาธารณูปโภคอื่น", "🏠", "expense", 30),
+    ("loan_house", "ผ่อนบ้าน", "🏡", "expense", 40),
+    ("loan_car", "ผ่อนรถ", "🚗", "expense", 50),
+    ("installment", "ผ่อนสินค้า", "📱", "expense", 60),
+    ("subscription", "ค่าบริการรายเดือน", "🔁", "expense", 70),
+    ("credit_card", "บัตรเครดิต", "💳", "expense", 75),
+    ("other", "อื่น ๆ", "📌", "expense", 999),
+    ("salary", "เงินเดือน", "💰", "income", 10),
+    ("bonus", "โบนัส/รายได้พิเศษ", "🎁", "income", 20),
+    ("income_other", "รายได้อื่น", "💵", "income", 999),
+]
 
 
 @contextmanager
@@ -45,82 +39,222 @@ def get_conn():
 
 
 def init_db():
-    """สร้างตารางถ้ายังไม่มี"""
+    """สร้างตาราง + migration ให้รองรับ multi-user"""
     with get_conn() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                line_user_id  TEXT UNIQUE NOT NULL,
+                display_name  TEXT,
+                picture_url   TEXT,
+                notify_hour   INTEGER NOT NULL DEFAULT 8,
+                summary_day   INTEGER NOT NULL DEFAULT 1,
+                created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                last_login    TEXT
+            )
+            """
+        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS expenses (
                 id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id             INTEGER NOT NULL DEFAULT 0,
                 name                TEXT    NOT NULL,
                 category            TEXT    NOT NULL DEFAULT 'other',
                 amount              REAL    NOT NULL DEFAULT 0,
-                due_day             INTEGER NOT NULL DEFAULT 1,   -- วันครบกำหนดของเดือน (1-31)
-                total_installments  INTEGER,                     -- จำนวนงวดทั้งหมด (NULL = รายเดือนไม่จำกัด)
-                paid_installments   INTEGER NOT NULL DEFAULT 0,   -- จำนวนงวดที่จ่ายแล้ว
-                start_date          TEXT,                        -- วันเริ่ม (YYYY-MM-DD)
+                due_day             INTEGER NOT NULL DEFAULT 1,
+                total_installments  INTEGER,
+                paid_installments   INTEGER NOT NULL DEFAULT 0,
+                start_date          TEXT,
                 remind_days_before  INTEGER NOT NULL DEFAULT 3,
                 active              INTEGER NOT NULL DEFAULT 1,
                 note                TEXT,
+                type                TEXT    NOT NULL DEFAULT 'expense',
+                variable_amount     INTEGER NOT NULL DEFAULT 0,
                 created_at          TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
             )
             """
         )
-        # ตารางบันทึกประวัติการแจ้งเตือน (กันส่งซ้ำ + ไว้ดูย้อนหลัง)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS payments (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL DEFAULT 0,
+                expense_id  INTEGER NOT NULL,
+                amount      REAL    NOT NULL DEFAULT 0,
+                paid_date   TEXT    NOT NULL,
+                installment_no INTEGER,
+                note        TEXT,
+                created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+            """
+        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS notify_log (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                kind        TEXT    NOT NULL,   -- monthly_summary / due_reminder / due_today
-                ref_key     TEXT    NOT NULL,   -- คีย์กันส่งซ้ำ เช่น 2026-06|summary
+                user_id     INTEGER NOT NULL DEFAULT 0,
+                kind        TEXT    NOT NULL,
+                ref_key     TEXT    NOT NULL,
                 message     TEXT,
                 sent_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
             )
             """
         )
-        # ตารางประวัติการจ่ายเงิน
         conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS payments (
+            CREATE TABLE IF NOT EXISTS categories (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                expense_id  INTEGER NOT NULL,
-                amount      REAL    NOT NULL DEFAULT 0,
-                paid_date   TEXT    NOT NULL,   -- YYYY-MM-DD
-                installment_no INTEGER,         -- งวดที่เท่าไหร่ (ถ้าเป็นการผ่อน)
-                note        TEXT,
-                created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-                FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE
+                user_id     INTEGER NOT NULL DEFAULT 0,
+                key         TEXT NOT NULL,
+                label       TEXT NOT NULL,
+                icon        TEXT NOT NULL DEFAULT '📌',
+                type        TEXT NOT NULL DEFAULT 'expense',
+                sort_order  INTEGER NOT NULL DEFAULT 100,
+                UNIQUE(user_id, key)
             )
             """
         )
 
+        # ---- migration จากสคีมาเดิม (single-user) ----
+        _add_column_if_missing(conn, "expenses", "user_id", "INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(conn, "expenses", "type", "TEXT NOT NULL DEFAULT 'expense'")
+        _add_column_if_missing(conn, "expenses", "variable_amount", "INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(conn, "payments", "user_id", "INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(conn, "notify_log", "user_id", "INTEGER NOT NULL DEFAULT 0")
+        # categories เดิม (จากฟีเจอร์ก่อนหน้า) อาจไม่มี user_id -> เติมให้
+        _add_column_if_missing(conn, "categories", "user_id", "INTEGER NOT NULL DEFAULT 0")
 
-# ---------- CRUD ----------
 
-def list_expenses(active_only=False):
-    q = "SELECT * FROM expenses"
-    if active_only:
-        q += " WHERE active = 1"
-    q += " ORDER BY due_day ASC, name ASC"
+def _add_column_if_missing(conn, table, column, decl):
+    cols = [r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
+# ---------- users ----------
+
+def upsert_user(line_user_id, display_name=None, picture_url=None):
+    """สร้าง user ถ้ายังไม่มี (พร้อม seed หมวด) หรืออัปเดตข้อมูลโปรไฟล์ — คืน dict ของ user"""
     with get_conn() as conn:
-        return [dict(r) for r in conn.execute(q).fetchall()]
+        row = conn.execute("SELECT * FROM users WHERE line_user_id = ?", (line_user_id,)).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE users SET display_name=?, picture_url=?, last_login=datetime('now','localtime') WHERE id=?",
+                (display_name, picture_url, row["id"]),
+            )
+            user_id = row["id"]
+            is_new = False
+        else:
+            cur = conn.execute(
+                "INSERT INTO users (line_user_id, display_name, picture_url, last_login) "
+                "VALUES (?,?,?,datetime('now','localtime'))",
+                (line_user_id, display_name, picture_url),
+            )
+            user_id = cur.lastrowid
+            is_new = True
+        if is_new:
+            conn.executemany(
+                "INSERT INTO categories (user_id, key, label, icon, type, sort_order) VALUES (?,?,?,?,?,?)",
+                [(user_id, *c) for c in DEFAULT_CATEGORIES],
+            )
+        return dict(conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone())
 
 
-def get_expense(expense_id):
+def get_user(user_id):
     with get_conn() as conn:
-        row = conn.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,)).fetchone()
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         return dict(row) if row else None
 
 
-def create_expense(data):
+def list_users():
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute("SELECT * FROM users ORDER BY id").fetchall()]
+
+
+def update_user_settings(user_id, notify_hour=None, summary_day=None):
+    with get_conn() as conn:
+        if notify_hour is not None:
+            conn.execute("UPDATE users SET notify_hour=? WHERE id=?", (int(notify_hour), user_id))
+        if summary_day is not None:
+            conn.execute("UPDATE users SET summary_day=? WHERE id=?", (int(summary_day), user_id))
+
+
+# ---------- categories (ต่อ user) ----------
+
+def get_categories(user_id, kind=None):
+    q = "SELECT * FROM categories WHERE user_id = ?"
+    params = [user_id]
+    if kind:
+        q += " AND type = ?"
+        params.append(kind)
+    q += " ORDER BY type, sort_order, label"
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(q, params).fetchall()]
+
+
+def category_map(user_id, kind=None):
+    return {c["key"]: c["label"] for c in get_categories(user_id, kind)}
+
+
+def icon_map(user_id, kind=None):
+    return {c["key"]: c["icon"] for c in get_categories(user_id, kind)}
+
+
+def create_category(user_id, key, label, icon, kind="expense"):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO categories (user_id, key, label, icon, type, sort_order) VALUES (?,?,?,?,?,?)",
+            (user_id, key, label, icon or "📌", kind if kind in ("expense", "income") else "expense", 500),
+        )
+
+
+def delete_category(user_id, key):
+    with get_conn() as conn:
+        used = conn.execute(
+            "SELECT COUNT(*) AS n FROM expenses WHERE user_id=? AND category=?", (user_id, key)
+        ).fetchone()["n"]
+        if used:
+            return False
+        conn.execute("DELETE FROM categories WHERE user_id=? AND key=?", (user_id, key))
+        return True
+
+
+# ---------- expenses (ต่อ user) ----------
+
+def list_expenses(user_id, active_only=False, kind=None):
+    q = "SELECT * FROM expenses WHERE user_id = ?"
+    params = [user_id]
+    if active_only:
+        q += " AND active = 1"
+    if kind:
+        q += " AND type = ?"
+        params.append(kind)
+    q += " ORDER BY due_day ASC, name ASC"
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(q, params).fetchall()]
+
+
+def get_expense(user_id, expense_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user_id)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def create_expense(user_id, data):
     with get_conn() as conn:
         cur = conn.execute(
             """
             INSERT INTO expenses
-                (name, category, amount, due_day, total_installments,
-                 paid_installments, start_date, remind_days_before, active, note)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
+                (user_id, name, category, amount, due_day, total_installments,
+                 paid_installments, start_date, remind_days_before, active, note, type, variable_amount)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
+                user_id,
                 data["name"],
                 data.get("category", "other"),
                 float(data.get("amount", 0) or 0),
@@ -131,19 +265,21 @@ def create_expense(data):
                 int(data.get("remind_days_before", config.DEFAULT_REMIND_DAYS_BEFORE) or 3),
                 1 if data.get("active", 1) else 0,
                 data.get("note") or None,
+                data.get("type", "expense") if data.get("type") in ("expense", "income") else "expense",
+                1 if data.get("variable_amount") else 0,
             ),
         )
         return cur.lastrowid
 
 
-def update_expense(expense_id, data):
+def update_expense(user_id, expense_id, data):
     with get_conn() as conn:
         conn.execute(
             """
             UPDATE expenses SET
                 name=?, category=?, amount=?, due_day=?, total_installments=?,
-                paid_installments=?, start_date=?, remind_days_before=?, active=?, note=?
-            WHERE id=?
+                paid_installments=?, start_date=?, remind_days_before=?, active=?, note=?, type=?, variable_amount=?
+            WHERE id=? AND user_id=?
             """,
             (
                 data["name"],
@@ -156,49 +292,48 @@ def update_expense(expense_id, data):
                 int(data.get("remind_days_before", config.DEFAULT_REMIND_DAYS_BEFORE) or 3),
                 1 if data.get("active", 1) else 0,
                 data.get("note") or None,
-                expense_id,
+                data.get("type", "expense") if data.get("type") in ("expense", "income") else "expense",
+                1 if data.get("variable_amount") else 0,
+                expense_id, user_id,
             ),
         )
 
 
-def delete_expense(expense_id):
+def delete_expense(user_id, expense_id):
     with get_conn() as conn:
-        conn.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
+        conn.execute("DELETE FROM expenses WHERE id=? AND user_id=?", (expense_id, user_id))
+        conn.execute("DELETE FROM payments WHERE expense_id=? AND user_id=?", (expense_id, user_id))
 
 
-def increment_paid(expense_id, by=1):
-    """เพิ่มจำนวนงวดที่จ่ายแล้ว (กดเมื่อจ่ายเงินจริง)"""
+def increment_paid(user_id, expense_id, by=1):
     with get_conn() as conn:
         conn.execute(
-            "UPDATE expenses SET paid_installments = MAX(0, paid_installments + ?) WHERE id = ?",
-            (by, expense_id),
+            "UPDATE expenses SET paid_installments = MAX(0, paid_installments + ?) WHERE id=? AND user_id=?",
+            (by, expense_id, user_id),
         )
 
 
-# ---------- payments (ประวัติการจ่าย) ----------
+# ---------- payments (ต่อ user) ----------
 
-def record_payment(expense_id, amount, paid_date, installment_no=None, note=None):
-    """บันทึกการจ่าย 1 ครั้ง คืน id ของรายการที่บันทึก"""
+def record_payment(user_id, expense_id, amount, paid_date, installment_no=None, note=None):
     with get_conn() as conn:
         cur = conn.execute(
-            """
-            INSERT INTO payments (expense_id, amount, paid_date, installment_no, note)
-            VALUES (?,?,?,?,?)
-            """,
-            (expense_id, float(amount or 0), paid_date, installment_no, note or None),
+            "INSERT INTO payments (user_id, expense_id, amount, paid_date, installment_no, note) "
+            "VALUES (?,?,?,?,?,?)",
+            (user_id, expense_id, float(amount or 0), paid_date, installment_no, note or None),
         )
         return cur.lastrowid
 
 
-def list_payments(expense_id=None, limit=None):
-    """ดูประวัติการจ่าย (ทั้งหมด หรือเฉพาะรายการเดียว) พร้อมชื่อรายการ"""
+def list_payments(user_id, expense_id=None, limit=None):
     q = (
         "SELECT p.*, e.name AS expense_name, e.category AS category "
-        "FROM payments p LEFT JOIN expenses e ON e.id = p.expense_id"
+        "FROM payments p LEFT JOIN expenses e ON e.id = p.expense_id "
+        "WHERE p.user_id = ?"
     )
-    params = []
+    params = [user_id]
     if expense_id is not None:
-        q += " WHERE p.expense_id = ?"
+        q += " AND p.expense_id = ?"
         params.append(expense_id)
     q += " ORDER BY p.paid_date DESC, p.id DESC"
     if limit:
@@ -208,52 +343,113 @@ def list_payments(expense_id=None, limit=None):
         return [dict(r) for r in conn.execute(q, params).fetchall()]
 
 
-def get_payment(payment_id):
+def get_payment(user_id, payment_id):
     with get_conn() as conn:
-        row = conn.execute("SELECT * FROM payments WHERE id = ?", (payment_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM payments WHERE id=? AND user_id=?", (payment_id, user_id)
+        ).fetchone()
         return dict(row) if row else None
 
 
-def delete_payment(payment_id):
+def delete_payment(user_id, payment_id):
     with get_conn() as conn:
-        conn.execute("DELETE FROM payments WHERE id = ?", (payment_id,))
+        conn.execute("DELETE FROM payments WHERE id=? AND user_id=?", (payment_id, user_id))
 
 
-def payment_total(expense_id=None):
-    """ยอดรวมที่จ่ายไปแล้วทั้งหมด (หรือเฉพาะรายการเดียว)"""
-    q = "SELECT COALESCE(SUM(amount),0) AS t FROM payments"
-    params = []
+def payment_total(user_id, expense_id=None):
+    q = "SELECT COALESCE(SUM(amount),0) AS t FROM payments WHERE user_id = ?"
+    params = [user_id]
     if expense_id is not None:
-        q += " WHERE expense_id = ?"
+        q += " AND expense_id = ?"
         params.append(expense_id)
     with get_conn() as conn:
         return conn.execute(q, params).fetchone()["t"]
 
 
-# ---------- notify log ----------
+# ---------- สถิติ (ต่อ user) ----------
 
-def already_sent(ref_key):
+def monthly_payment_totals(user_id, months=6, end=None):
+    end = end or date.today()
+    months_list = []
+    y, m = end.year, end.month
+    for _ in range(months):
+        months_list.append(f"{y:04d}-{m:02d}")
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    months_list.reverse()
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT substr(paid_date,1,7) AS ym, COALESCE(SUM(amount),0) AS total "
+            "FROM payments WHERE user_id=? GROUP BY ym",
+            (user_id,),
+        ).fetchall()
+    lookup = {r["ym"]: r["total"] for r in rows}
+    return [{"ym": ym, "total": round(lookup.get(ym, 0), 2)} for ym in months_list]
+
+
+def category_breakdown(user_id, ym=None):
+    ym = ym or date.today().strftime("%Y-%m")
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT COALESCE(e.category,'other') AS category, COALESCE(SUM(p.amount),0) AS total
+            FROM payments p LEFT JOIN expenses e ON e.id = p.expense_id
+            WHERE p.user_id=? AND substr(p.paid_date,1,7) = ?
+            GROUP BY e.category ORDER BY total DESC
+            """,
+            (user_id, ym),
+        ).fetchall()
+    cats = {c["key"]: c for c in get_categories(user_id)}
+    out = []
+    for r in rows:
+        c = cats.get(r["category"], {})
+        out.append({
+            "category": r["category"],
+            "label": c.get("label", r["category"] or "อื่น ๆ"),
+            "icon": c.get("icon", "📌"),
+            "total": round(r["total"], 2),
+        })
+    return out
+
+
+def scheduled_totals(user_id):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT type, COALESCE(SUM(amount),0) AS t FROM expenses WHERE user_id=? AND active=1 GROUP BY type",
+            (user_id,),
+        ).fetchall()
+    d = {r["type"]: r["t"] for r in rows}
+    income = round(d.get("income", 0), 2)
+    expense = round(d.get("expense", 0), 2)
+    return {"income": income, "expense": expense, "net": round(income - expense, 2)}
+
+
+# ---------- notify log (ต่อ user) ----------
+
+def already_sent(user_id, ref_key):
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT 1 FROM notify_log WHERE ref_key = ? LIMIT 1", (ref_key,)
+            "SELECT 1 FROM notify_log WHERE user_id=? AND ref_key=? LIMIT 1", (user_id, ref_key)
         ).fetchone()
         return row is not None
 
 
-def record_sent(kind, ref_key, message):
+def record_sent(user_id, kind, ref_key, message):
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO notify_log (kind, ref_key, message) VALUES (?,?,?)",
-            (kind, ref_key, message),
+            "INSERT INTO notify_log (user_id, kind, ref_key, message) VALUES (?,?,?,?)",
+            (user_id, kind, ref_key, message),
         )
 
 
-def recent_logs(limit=30):
+def recent_logs(user_id, limit=30):
     with get_conn() as conn:
         return [
             dict(r)
             for r in conn.execute(
-                "SELECT * FROM notify_log ORDER BY id DESC LIMIT ?", (limit,)
+                "SELECT * FROM notify_log WHERE user_id=? ORDER BY id DESC LIMIT ?", (user_id, limit)
             ).fetchall()
         ]
 

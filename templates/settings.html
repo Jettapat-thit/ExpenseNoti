@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">ตั้งค่า</h1>
+        <p class="page-sub">การแจ้งเตือนของบัญชีคุณ</p>
+    </div>
+</div>
+
+<form method="post" class="card form" style="max-width:520px">
+    <div class="row">
+        <label>
+            เวลาส่งแจ้งเตือน (0–23 น.)
+            <input type="number" name="notify_hour" min="0" max="23" value="{{ me.notify_hour }}">
+        </label>
+        <label>
+            วันส่งสรุปรวมรายเดือน (1–28)
+            <input type="number" name="summary_day" min="1" max="28" value="{{ me.summary_day }}">
+        </label>
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">บันทึก</button>
+    </div>
+</form>
+
+<div class="card" style="max-width:520px;margin-top:18px">
+    <h3 style="margin-top:0">บัญชี LINE ที่ผูกไว้</h3>
+    <div class="acct-row">
+        {% if me.picture_url %}<img src="{{ me.picture_url }}" class="avatar-lg" alt="">{% endif %}
+        <div>
+            <div style="font-weight:700">{{ me.display_name or '-' }}</div>
+            <div class="muted" style="font-size:.82rem;word-break:break-all">LINE ID: {{ me.line_user_id }}</div>
+        </div>
+    </div>
+    <p class="muted" style="font-size:.85rem;margin-bottom:0">
+        ถ้าไม่ได้รับแจ้งเตือน ตรวจว่าได้แอดบอท (Messaging API) เป็นเพื่อนใน LINE แล้ว
+    </p>
+</div>
+
+{% endblock %}

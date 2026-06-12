@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">สถิติค่าใช้จ่าย</h1>
+        <p class="page-sub">ยอดจ่ายจริงจากประวัติการบันทึก</p>
+    </div>
+    <a href="{{ url_for('export_csv') }}" class="btn btn-small">⬇ ดาวน์โหลด CSV</a>
+</div>
+
+<!-- เทียบเดือนนี้กับเดือนก่อน -->
+<div class="stats">
+    <div class="stat-card stat-primary">
+        <div class="stat-icon">📅</div>
+        <div class="stat-body">
+            <div class="stat-value">{{ "{:,.0f}".format(this_m) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-label">จ่ายเดือนนี้</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⏮</div>
+        <div class="stat-body">
+            <div class="stat-value">{{ "{:,.0f}".format(prev_m) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-label">เดือนก่อน</div>
+        </div>
+    </div>
+    <div class="stat-card {% if diff > 0 %}stat-warn{% elif diff < 0 %}stat-income{% endif %}">
+        <div class="stat-icon">{% if diff > 0 %}📈{% elif diff < 0 %}📉{% else %}➖{% endif %}</div>
+        <div class="stat-body">
+            <div class="stat-value">
+                {% if diff > 0 %}+{% endif %}{{ "{:,.0f}".format(diff) }}
+                {% if pct is not none %}<span class="stat-unit">({% if diff > 0 %}+{% endif %}{{ pct }}%)</span>{% endif %}
+            </div>
+            <div class="stat-label">เทียบเดือนก่อน</div>
+        </div>
+    </div>
+</div>
+
+<div class="chart-card">
+    <h3 class="chart-title">แนวโน้มยอดจ่าย 6 เดือนล่าสุด</h3>
+    <canvas id="monthlyChart" height="120"></canvas>
+</div>
+
+<div class="chart-row">
+    <div class="chart-card">
+        <h3 class="chart-title">สัดส่วนรายจ่ายเดือนนี้ (ตามหมวด)</h3>
+        {% if breakdown %}
+        <canvas id="catChart" height="200"></canvas>
+        {% else %}
+        <p class="muted">ยังไม่มีการบันทึกจ่ายในเดือนนี้</p>
+        {% endif %}
+    </div>
+    <div class="chart-card">
+        <h3 class="chart-title">แผนรายเดือน: รายรับ vs รายจ่าย</h3>
+        <canvas id="planChart" height="200"></canvas>
+        <p class="muted" style="text-align:center;margin-top:10px">
+            คงเหลือสุทธิตามแผน
+            <strong class="{% if sched.net < 0 %}neg{% else %}pos{% endif %}">
+                {{ "{:,.0f}".format(sched.net) }} บาท/เดือน
+            </strong>
+        </p>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const monthly = {{ monthly | tojson }};
+const breakdown = {{ breakdown | tojson }};
+const sched = {{ sched | tojson }};
+const GREEN = '#06c755', BLUE = '#2563eb', RED = '#dc2626';
+const PALETTE = ['#06c755','#2563eb','#f59e0b','#dc2626','#8b5cf6','#ec4899','#14b8a6','#64748b','#f97316','#0ea5e9'];
+
+function monthLabel(ym){ const [y,m]=ym.split('-'); return m+'/'+y.slice(2); }
+
+new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+        labels: monthly.map(d => monthLabel(d.ym)),
+        datasets: [{ label: 'ยอดจ่าย (บาท)', data: monthly.map(d => d.total),
+                     backgroundColor: GREEN, borderRadius: 6 }]
+    },
+    options: { plugins: { legend: { display: false } },
+               scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } } }
+});
+
+if (breakdown.length) {
+    new Chart(document.getElementById('catChart'), {
+        type: 'doughnut',
+        data: {
+            labels: breakdown.map(c => c.icon + ' ' + c.label),
+            datasets: [{ data: breakdown.map(c => c.total), backgroundColor: PALETTE }]
+        },
+        options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } } }
+    });
+}
+
+new Chart(document.getElementById('planChart'), {
+    type: 'bar',
+    data: {
+        labels: ['รายรับ', 'รายจ่าย'],
+        datasets: [{ data: [sched.income, sched.expense], backgroundColor: [BLUE, RED], borderRadius: 6 }]
+    },
+    options: { plugins: { legend: { display: false } },
+               scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } } }
+});
+</script>
+
+{% endblock %}

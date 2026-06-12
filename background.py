@@ -26,29 +26,33 @@ def start():
         print("⚠️  ไม่พบ APScheduler — ข้ามการตั้งเวลาในแอป (pip install APScheduler)")
         return None
 
-    hour = int(os.environ.get("NOTIFY_HOUR", "8"))
     minute = int(os.environ.get("NOTIFY_MINUTE", "0"))
-    summary_day = int(os.environ.get("SUMMARY_DAY", "1"))
 
+    # รันทุกชั่วโมง แล้วส่งเฉพาะ user ที่ตั้งเวลาแจ้งเตือน (notify_hour) ตรงกับชั่วโมงนั้น
     _scheduler = BackgroundScheduler(timezone=config.TIMEZONE)
     _scheduler.add_job(
-        lambda: _run(summary_day),
+        _run,
         trigger="cron",
-        hour=hour,
         minute=minute,
         id="daily_notify",
         replace_existing=True,
     )
     _scheduler.start()
-    print(f"✅ Background scheduler เริ่มแล้ว — แจ้งเตือนทุกวันเวลา {hour:02d}:{minute:02d} ({config.TIMEZONE})")
+    print(f"✅ Background scheduler เริ่มแล้ว — เช็คทุกชั่วโมง (นาที {minute:02d}) ส่งตามเวลาที่แต่ละ user ตั้งไว้ ({config.TIMEZONE})")
     atexit.register(lambda: _scheduler.shutdown(wait=False))
     return _scheduler
 
 
-def _run(summary_day):
+def _run():
     try:
-        results = notifier.run_daily(send=True, summary_day=summary_day)
+        from datetime import datetime
+        try:
+            from zoneinfo import ZoneInfo
+            now = datetime.now(ZoneInfo(config.TIMEZONE))
+        except Exception:
+            now = datetime.now()
+        results = notifier.run_daily_all(send=True, at_hour=now.hour)
         if results:
-            print(f"[scheduler] ส่งแจ้งเตือน {len(results)} รายการ")
+            print(f"[scheduler] ชั่วโมง {now.hour}: ส่งแจ้งเตือน {len(results)} รายการ")
     except Exception as exc:  # ไม่ให้ thread ตายเงียบ ๆ
         print(f"[scheduler] เกิดข้อผิดพลาด: {exc}")
