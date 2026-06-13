@@ -265,6 +265,10 @@ h2 { margin-top: 0; }
 .zone-linked .section-head { background: #4f46e5; }
 .zone-note { font-size: .82rem; color: var(--muted); margin: -6px 0 12px; }
 
+/* รายการอื่น ๆ (ไม่นับยอด) — โทนเทาอ่อน */
+.zone-tracking { background: #f5f6f8; border-color: #d9dee4; }
+.zone-tracking .section-head { background: #64748b; }
+
 /* พักชั่วคราว — โทนเทา */
 .zone-paused { background: #f1f3f5; border-color: #d3d8de; }
 .zone-paused .section-head { background: #6b7280; }

@@ -133,7 +133,7 @@ def index():
     paid_ids = models.paid_expense_ids(uid)   # รายการที่จ่ายแล้วเดือนนี้
     name_by_id = {e["id"]: e["name"] for e in expenses}
 
-    unpaid_view, paid_view, income_view, linked_view, paused_view = [], [], [], [], []
+    unpaid_view, paid_view, income_view, linked_view, paused_view, tracking_view = [], [], [], [], [], []
     expense_total = income_total = 0.0
     active_count = upcoming_count = 0
     for e in expenses:
@@ -179,6 +179,8 @@ def index():
             income_view.append(row)
         elif linked_via:
             linked_view.append(row)
+        elif e.get("tracking_only"):
+            tracking_view.append(row)
         elif is_paid:
             paid_view.append(row)
         else:
@@ -199,7 +201,7 @@ def index():
         "index.html",
         unpaid_groups=group_by_cat(unpaid_view), paid_groups=group_by_cat(paid_view),
         unpaid_n=len(unpaid_view), paid_n=len(paid_view),
-        linked=linked_view, paused=paused_view, incomes=income_view,
+        linked=linked_view, paused=paused_view, tracking=tracking_view, incomes=income_view,
         categories_list=cats,
         monthly_total=expense_total, income_total=income_total,
         net_total=income_total - expense_total, has_income=bool(income_view),

@@ -266,6 +266,16 @@
 </section>
 {% endif %}
 
+{% if tracking %}
+<section class="zone zone-tracking zone-sec" data-sec="tracking">
+    <h3 class="section-head">📋 รายการอื่น ๆ ({{ tracking|length }})</h3>
+    <p class="zone-note">รายการที่ไม่นำมารวมในยอด — มีไว้ติดตามเฉย ๆ</p>
+    <div class="cards">
+        {% for e in tracking %}{{ expense_card(e, status='tracking') }}{% endfor %}
+    </div>
+</section>
+{% endif %}
+
 {% if paused %}
 <section class="zone zone-paused zone-sec" data-sec="paused">
     <h3 class="section-head">⏸ พักชั่วคราว ({{ paused|length }})</h3>
@@ -278,7 +288,7 @@
 
 <div class="no-match" hidden>🔍 ไม่พบรายการที่ตรงกับตัวกรอง</div>
 
-{% if not unpaid_n and not paid_n and not incomes and not linked and not paused %}
+{% if not unpaid_n and not paid_n and not incomes and not linked and not paused and not tracking %}
 <div class="empty">
     <div class="empty-icon">📭</div>
     <p>ยังไม่มีรายการ</p>
