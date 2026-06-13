@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Admin — จัดการผู้ใช้</h1>
+        <p class="page-sub">ผู้ใช้ทั้งหมด {{ users|length }} คน</p>
+    </div>
+</div>
+
+{% if users %}
+<table class="grid">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>ผู้ใช้</th>
+            <th class="num">รายการ</th>
+            <th class="num">ประวัติจ่าย</th>
+            <th class="num">ยอดจ่ายสะสม</th>
+            <th>เข้าล่าสุด</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in users %}
+        <tr>
+            <td>{{ u.id }}</td>
+            <td>
+                <div style="display:flex;align-items:center;gap:8px">
+                    {% if u.picture_url %}<img src="{{ u.picture_url }}" class="avatar" alt="">{% endif %}
+                    <div>
+                        <strong>{{ u.display_name or '-' }}</strong><br>
+                        <small class="muted" style="word-break:break-all">{{ u.line_user_id }}</small>
+                    </div>
+                </div>
+            </td>
+            <td class="num">{{ u.n_expenses }}</td>
+            <td class="num">{{ u.n_payments }}</td>
+            <td class="num">{{ "{:,.0f}".format(u.paid_total) }}</td>
+            <td><small class="muted">{{ u.last_login or u.created_at }}</small></td>
+            <td class="actions"><a href="{{ url_for('admin_user', target_id=u.id) }}" class="btn btn-small">ดู/จัดการ</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty"><div class="empty-icon">👥</div><p>ยังไม่มีผู้ใช้</p></div>
+{% endif %}
+
+{% endblock %}

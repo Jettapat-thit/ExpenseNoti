@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">{{ target.display_name or 'ผู้ใช้' }}</h1>
+        <p class="page-sub" style="word-break:break-all">LINE ID: {{ target.line_user_id }}</p>
+    </div>
+    <a href="{{ url_for('admin') }}" class="btn btn-small">← กลับ</a>
+</div>
+
+<div class="stats">
+    <div class="stat-card stat-primary">
+        <div class="stat-icon">💸</div>
+        <div class="stat-body">
+            <div class="stat-value">{{ "{:,.0f}".format(sched.expense) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-label">รายจ่าย/เดือน</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">🧾</div>
+        <div class="stat-body">
+            <div class="stat-value">{{ n_payments }}</div>
+            <div class="stat-label">ครั้งที่จ่าย ({{ "{:,.0f}".format(paid_total) }} บาท)</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">📋</div>
+        <div class="stat-body">
+            <div class="stat-value">{{ expenses|length }}</div>
+            <div class="stat-label">รายการทั้งหมด</div>
+        </div>
+    </div>
+</div>
+
+<h3 class="section-head">รายการของผู้ใช้</h3>
+{% if expenses %}
+<table class="grid">
+    <thead>
+        <tr><th>ชื่อ</th><th>หมวด</th><th>ชนิด</th><th class="num">ยอด</th><th>กำหนด</th><th>สถานะ</th><th></th></tr>
+    </thead>
+    <tbody>
+        {% for e in expenses %}
+        <tr>
+            <td><strong>{{ e.name }}</strong></td>
+            <td>{{ e.category_name }}</td>
+            <td>{{ 'รายรับ' if e.type == 'income' else 'รายจ่าย' }}</td>
+            <td class="num">{% if e.variable_amount %}แล้วแต่บิล{% else %}{{ "{:,.0f}".format(e.amount) }}{% endif %}</td>
+            <td>วันที่ {{ e.due_day }}</td>
+            <td>
+                {% if e.paused %}<span class="badge badge-off">พัก</span>
+                {% elif e.tracking_only %}<span class="badge badge-track">ไม่นับยอด</span>
+                {% elif e.paid_via %}<span class="badge badge-via">จ่ายผ่านอื่น</span>
+                {% elif not e.active %}<span class="badge badge-off">ปิด</span>
+                {% else %}<span class="badge badge-done">ใช้งาน</span>{% endif %}
+            </td>
+            <td class="actions">
+                <form method="post" action="{{ url_for('admin_delete_expense', target_id=target.id, expense_id=e.id) }}"
+                      style="display:inline" onsubmit="return confirm('ลบรายการ {{ e.name }}?')">
+                    <button class="btn btn-small btn-danger">ลบ</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">ผู้ใช้นี้ยังไม่มีรายการ</p>
+{% endif %}
+
+<div class="card" style="margin-top:24px;border:2px solid #fecaca">
+    <h3 style="margin-top:0;color:var(--red)">⚠️ เขตอันตราย</h3>
+    <p class="muted" style="font-size:.88rem">ลบผู้ใช้นี้พร้อมข้อมูลทั้งหมด (รายการ ประวัติ งบ เป้าหมาย) — กู้คืนไม่ได้</p>
+    <form method="post" action="{{ url_for('admin_delete_user', target_id=target.id) }}"
+          onsubmit="return confirm('ลบผู้ใช้ {{ target.display_name }} และข้อมูลทั้งหมด? กู้คืนไม่ได้!')">
+        <button class="btn btn-danger">ลบผู้ใช้นี้ทั้งหมด</button>
+    </form>
+</div>
+
+{% endblock %}

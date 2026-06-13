@@ -55,7 +55,9 @@ def build_monthly_summary(user_id, today=None):
     """สร้างข้อความสรุปรวมรายรับ-รายจ่ายของเดือน (ต่อ user)"""
     today = today or date.today()
     cat_map = models.category_map(user_id)
-    items = [e for e in models.list_expenses(user_id, active_only=True) if not is_finished(e)]
+    all_items = models.list_expenses(user_id, active_only=True)
+    name_by_id = {e["id"]: e["name"] for e in all_items}
+    items = [e for e in all_items if not is_finished(e) and not e.get("paused")]
     expenses = sorted([e for e in items if e.get("type", "expense") != "income"], key=lambda e: e["due_day"])
     incomes = sorted([e for e in items if e.get("type") == "income"], key=lambda e: e["due_day"])
 
@@ -68,7 +70,12 @@ def build_monthly_summary(user_id, today=None):
     if expenses:
         for e in expenses:
             cat = cat_map.get(e["category"], e["category"])
-            if e.get("variable_amount"):
+            if e.get("paid_via"):
+                via = name_by_id.get(e["paid_via"], "รายการอื่น")
+                line = f"• {e['name']} ({cat})  จ่ายผ่าน {via} (ไม่นับยอด)"
+            elif e.get("tracking_only"):
+                line = f"• {e['name']} ({cat})  {_fmt_baht(e['amount'])} บาท (ติดตามเฉย ๆ ไม่นับยอด) — กำหนดวันที่ {e['due_day']}"
+            elif e.get("variable_amount"):
                 line = f"• {e['name']} ({cat})  ยอดแล้วแต่บิล — ครบกำหนดวันที่ {e['due_day']}"
             else:
                 expense_total += float(e["amount"])
@@ -105,7 +112,7 @@ def build_due_reminders(user_id, today=None):
     cat_map = models.category_map(user_id)
     out = []
     for e in models.list_expenses(user_id, active_only=True):
-        if is_finished(e) or e.get("type") == "income":
+        if is_finished(e) or e.get("type") == "income" or e.get("paid_via") or e.get("paused"):
             continue
         due = next_due_date(e["due_day"], today)
         days_left = (due - today).days

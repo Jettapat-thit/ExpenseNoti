@@ -37,6 +37,25 @@
         ยอดไม่กำหนดล่วงหน้า (เช่น บัตรเครดิต) — เตือนตามกำหนด แล้วกรอกยอดจริงตอนจ่าย
     </label>
 
+    <label class="checkbox" style="margin-bottom:10px">
+        <input type="checkbox" name="tracking_only"
+               {% if expense and expense.tracking_only %}checked{% endif %}>
+        ไม่นำมารวมในยอดรวม (มีไว้ติดตามเฉย ๆ) — ยังเตือนและแสดงตามปกติ แต่ไม่คิดในยอด/งบ
+    </label>
+
+    {% if pay_methods %}
+    <label id="via-label">
+        จ่ายผ่านรายการอื่น (ไม่นำมารวมยอด)
+        <select name="paid_via">
+            <option value="">— ไม่ได้จ่ายผ่านรายการอื่น —</option>
+            {% for m in pay_methods %}
+            <option value="{{ m.id }}" {% if expense and expense.paid_via == m.id %}selected{% endif %}>{{ m.name }}</option>
+            {% endfor %}
+        </select>
+        <small class="muted">เช่น ผ่อน iPad รวมอยู่ในบิลบัตรเครดิต KTC แล้ว — เลือกบัตร KTC เพื่อไม่ให้นับยอดซ้ำ</small>
+    </label>
+    {% endif %}
+
     <div class="row">
         <label id="amount-label">
             ยอดต่อเดือน (บาท)

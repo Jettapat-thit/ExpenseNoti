@@ -45,9 +45,26 @@ def login_required(view):
     return wrapped
 
 
+def is_admin(user):
+    return bool(user and user.get("line_user_id") in config.ADMIN_LINE_USER_IDS)
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        u = current_user()
+        if not u:
+            return redirect(url_for("login"))
+        if not is_admin(u):
+            abort(403)
+        return view(*args, **kwargs)
+    return wrapped
+
+
 @app.context_processor
 def inject_user():
-    return {"user": current_user()}
+    u = current_user()
+    return {"user": u, "is_admin": is_admin(u)}
 
 
 # ---------- auth routes ----------
@@ -108,11 +125,14 @@ def index():
     uid = session["uid"]
     expenses = models.list_expenses(uid)
     today = date.today()
-    cat_map = models.category_map(uid)
-    ico_map = models.icon_map(uid)
+    cats = models.get_categories(uid)
+    cat_map = {c["key"]: c["label"] for c in cats}
+    ico_map = {c["key"]: c["icon"] for c in cats}
+    cat_order = {c["key"]: i for i, c in enumerate(cats)}
     paid_ids = models.paid_expense_ids(uid)   # รายการที่จ่ายแล้วเดือนนี้
+    name_by_id = {e["id"]: e["name"] for e in expenses}
 
-    unpaid_view, paid_view, income_view = [], [], []
+    unpaid_view, paid_view, income_view, linked_view, paused_view = [], [], [], [], []
     expense_total = income_total = 0.0
     active_count = upcoming_count = 0
     for e in expenses:
@@ -122,12 +142,14 @@ def index():
         days_left = (due - today).days
         is_income = e.get("type") == "income"
         is_paid = e["id"] in paid_ids
-        if bool(e["active"]) and not finished:
+        is_paused = bool(e.get("paused"))
+        linked_via = e.get("paid_via")   # จ่ายผ่านรายการอื่น -> ไม่นับยอด
+        if bool(e["active"]) and not finished and not is_paused:
             active_count += 1
             if is_income:
                 income_total += float(e["amount"])
-            else:
-                if not e.get("variable_amount"):
+            elif not linked_via:
+                if not e.get("variable_amount") and not e.get("tracking_only"):
                     expense_total += float(e["amount"])
                 if not is_paid and days_left <= int(e.get("remind_days_before", 3)):
                     upcoming_count += 1
@@ -140,22 +162,35 @@ def index():
             "icon": ico_map.get(e["category"], "💰" if is_income else "📌"),
             "next_due": due, "days_left": days_left, "remaining": rem,
             "finished": finished, "progress": progress, "paid": is_paid,
+            "paid_via_name": name_by_id.get(linked_via) if linked_via else None,
         }
-        if is_income:
+        if is_paused:
+            paused_view.append(row)
+        elif is_income:
             income_view.append(row)
+        elif linked_via:
+            linked_view.append(row)
         elif is_paid:
             paid_view.append(row)
         else:
             unpaid_view.append(row)
 
-    # นับเฉพาะรายจ่ายที่ใช้งานอยู่ (ไม่รวมรายการปิด/ผ่อนครบ) สำหรับ checklist
-    active_expenses = [r for r in (unpaid_view + paid_view) if r["active"] and not r["finished"]]
-    paid_count = sum(1 for r in active_expenses if r["paid"])
-    expense_count = len(active_expenses)
+    def group_by_cat(rows):
+        """จัดกลุ่มย่อยตามหมวดหมู่ เรียงตามลำดับหมวด"""
+        buckets = {}
+        for r in rows:
+            buckets.setdefault(r["category"], []).append(r)
+        ordered = sorted(buckets.items(), key=lambda kv: cat_order.get(kv[0], 999))
+        return [{"label": cat_map.get(k, k), "icon": ico_map.get(k, "📌"), "items": v} for k, v in ordered]
+
+    paid_count = len(paid_view)
+    expense_count = len(unpaid_view) + len(paid_view)
 
     return render_template(
         "index.html",
-        unpaid=unpaid_view, paid=paid_view, incomes=income_view,
+        unpaid_groups=group_by_cat(unpaid_view), paid_groups=group_by_cat(paid_view),
+        unpaid_n=len(unpaid_view), paid_n=len(paid_view),
+        linked=linked_view, paused=paused_view, incomes=income_view,
         monthly_total=expense_total, income_total=income_total,
         net_total=income_total - expense_total, has_income=bool(income_view),
         active_count=active_count, upcoming_count=upcoming_count,
@@ -174,7 +209,9 @@ def add():
         models.create_expense(uid, _form_to_data(request.form))
         flash("เพิ่มรายการเรียบร้อยแล้ว", "success")
         return redirect(url_for("index"))
+    methods = models.list_expenses(uid, kind="expense")
     return render_template("form.html", expense=None, categories=models.get_categories(uid),
+                           pay_methods=methods,
                            default_remind=config.DEFAULT_REMIND_DAYS_BEFORE, today=date.today())
 
 
@@ -189,7 +226,9 @@ def edit(expense_id):
         models.update_expense(uid, expense_id, _form_to_data(request.form))
         flash("บันทึกการแก้ไขแล้ว", "success")
         return redirect(url_for("index"))
+    methods = [m for m in models.list_expenses(uid, kind="expense") if m["id"] != expense_id]
     return render_template("form.html", expense=expense, categories=models.get_categories(uid),
+                           pay_methods=methods,
                            default_remind=config.DEFAULT_REMIND_DAYS_BEFORE, today=date.today())
 
 
@@ -237,6 +276,22 @@ def quickpay(expense_id):
     models.record_payment(uid, expense_id, expense["amount"], date.today().isoformat(),
                           installment_no, "จ่ายเร็ว")
     flash(f"บันทึกจ่าย {expense['name']} {expense['amount']:,.0f} บาทแล้ว", "success")
+    return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/pause/<int:expense_id>", methods=["POST"])
+@login_required
+def pause(expense_id):
+    models.set_paused(session["uid"], expense_id, True)
+    flash("พักรายการชั่วคราวแล้ว", "success")
+    return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/resume/<int:expense_id>", methods=["POST"])
+@login_required
+def resume(expense_id):
+    models.set_paused(session["uid"], expense_id, False)
+    flash("เปิดใช้รายการต่อแล้ว", "success")
     return redirect(request.referrer or url_for("index"))
 
 
@@ -524,12 +579,59 @@ def calendar_view():
                            month_name=th_months[month], prev_m=prev_m, next_m=next_m, today=today)
 
 
+# ---------- admin ----------
+
+@app.route("/admin")
+@admin_required
+def admin():
+    return render_template("admin.html", users=models.admin_user_stats())
+
+
+@app.route("/admin/user/<int:target_id>")
+@admin_required
+def admin_user(target_id):
+    target = models.get_user(target_id)
+    if not target:
+        abort(404)
+    cat_map = models.category_map(target_id)
+    expenses = models.list_expenses(target_id)
+    for e in expenses:
+        e["category_name"] = cat_map.get(e["category"], e["category"])
+    return render_template(
+        "admin_user.html", target=target, expenses=expenses,
+        sched=models.scheduled_totals(target_id),
+        n_payments=len(models.list_payments(target_id)),
+        paid_total=models.payment_total(target_id),
+    )
+
+
+@app.route("/admin/user/<int:target_id>/delete", methods=["POST"])
+@admin_required
+def admin_delete_user(target_id):
+    if target_id == session["uid"]:
+        flash("ลบบัญชีตัวเองจากหน้า admin ไม่ได้", "error")
+        return redirect(url_for("admin_user", target_id=target_id))
+    models.delete_user(target_id)
+    flash("ลบผู้ใช้และข้อมูลทั้งหมดแล้ว", "success")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/user/<int:target_id>/expense/<int:expense_id>/delete", methods=["POST"])
+@admin_required
+def admin_delete_expense(target_id, expense_id):
+    models.delete_expense(target_id, expense_id)
+    flash("ลบรายการแล้ว", "success")
+    return redirect(url_for("admin_user", target_id=target_id))
+
+
 def _form_to_data(form):
     total_inst = form.get("total_installments", "").strip()
     return {
         "name": form.get("name", "").strip(),
         "type": form.get("type", "expense"),
         "variable_amount": 1 if form.get("variable_amount") == "on" else 0,
+        "tracking_only": 1 if form.get("tracking_only") == "on" else 0,
+        "paid_via": form.get("paid_via") or None,
         "category": form.get("category", "other"),
         "amount": form.get("amount", 0),
         "due_day": form.get("due_day", 1),

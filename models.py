@@ -137,6 +137,13 @@ def init_db():
         conn.add_column("expenses", "user_id", "INTEGER NOT NULL DEFAULT 0")
         conn.add_column("expenses", "type", "TEXT NOT NULL DEFAULT 'expense'")
         conn.add_column("expenses", "variable_amount", "INTEGER NOT NULL DEFAULT 0")
+        # paid_via = id ของรายการอื่นที่จ่ายผ่าน (เช่น ผ่อน iPad จ่ายผ่านบัตร KTC)
+        # ถ้าตั้งค่า จะไม่ถูกนำมารวมในยอดรายจ่าย/รายงาน (กันนับซ้ำ)
+        conn.add_column("expenses", "paid_via", "INTEGER")
+        # paused = พักการชำระชั่วคราว (หยุดนับยอด/หยุดเตือน แต่เก็บไว้ เปิดต่อทีหลังได้)
+        conn.add_column("expenses", "paused", "INTEGER NOT NULL DEFAULT 0")
+        # tracking_only = มีไว้ติดตามเฉย ๆ ไม่นำมารวมในยอดรวม (แต่ยังเตือน/แสดงตามปกติ)
+        conn.add_column("expenses", "tracking_only", "INTEGER NOT NULL DEFAULT 0")
         conn.add_column("payments", "user_id", "INTEGER NOT NULL DEFAULT 0")
         conn.add_column("notify_log", "user_id", "INTEGER NOT NULL DEFAULT 0")
         conn.add_column("categories", "user_id", "INTEGER NOT NULL DEFAULT 0")
@@ -179,6 +186,29 @@ def get_user(user_id):
 def list_users():
     with get_conn() as conn:
         return [dict(r) for r in conn.execute("SELECT * FROM users ORDER BY id").fetchall()]
+
+
+def delete_user(user_id):
+    """ลบ user และข้อมูลทั้งหมดของเขา (ใช้ในหน้า admin)"""
+    with get_conn() as conn:
+        for t in ("payments", "expenses", "categories", "budgets", "goals", "notify_log"):
+            conn.execute(f"DELETE FROM {t} WHERE user_id=?", (user_id,))
+        conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+
+
+def admin_user_stats():
+    """สรุปข้อมูลทุก user สำหรับหน้า admin"""
+    with get_conn() as conn:
+        users = [dict(r) for r in conn.execute("SELECT * FROM users ORDER BY id").fetchall()]
+        for u in users:
+            uid = u["id"]
+            u["n_expenses"] = conn.execute(
+                "SELECT COUNT(*) AS n FROM expenses WHERE user_id=?", (uid,)).fetchone()["n"]
+            u["n_payments"] = conn.execute(
+                "SELECT COUNT(*) AS n FROM payments WHERE user_id=?", (uid,)).fetchone()["n"]
+            u["paid_total"] = conn.execute(
+                "SELECT COALESCE(SUM(amount),0) AS t FROM payments WHERE user_id=?", (uid,)).fetchone()["t"]
+    return users
 
 
 def update_user_settings(user_id, notify_hour=None, summary_day=None):
@@ -259,8 +289,8 @@ def create_expense(user_id, data):
             """
             INSERT INTO expenses
                 (user_id, name, category, amount, due_day, total_installments,
-                 paid_installments, start_date, remind_days_before, active, note, type, variable_amount)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 paid_installments, start_date, remind_days_before, active, note, type, variable_amount, paid_via, tracking_only)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 user_id,
@@ -276,6 +306,8 @@ def create_expense(user_id, data):
                 data.get("note") or None,
                 data.get("type", "expense") if data.get("type") in ("expense", "income") else "expense",
                 1 if data.get("variable_amount") else 0,
+                _int_or_none(data.get("paid_via")),
+                1 if data.get("tracking_only") else 0,
             ),
         )
 
@@ -286,7 +318,7 @@ def update_expense(user_id, expense_id, data):
             """
             UPDATE expenses SET
                 name=?, category=?, amount=?, due_day=?, total_installments=?,
-                paid_installments=?, start_date=?, remind_days_before=?, active=?, note=?, type=?, variable_amount=?
+                paid_installments=?, start_date=?, remind_days_before=?, active=?, note=?, type=?, variable_amount=?, paid_via=?, tracking_only=?
             WHERE id=? AND user_id=?
             """,
             (
@@ -302,6 +334,8 @@ def update_expense(user_id, expense_id, data):
                 data.get("note") or None,
                 data.get("type", "expense") if data.get("type") in ("expense", "income") else "expense",
                 1 if data.get("variable_amount") else 0,
+                _int_or_none(data.get("paid_via")),
+                1 if data.get("tracking_only") else 0,
                 expense_id, user_id,
             ),
         )
@@ -311,6 +345,15 @@ def delete_expense(user_id, expense_id):
     with get_conn() as conn:
         conn.execute("DELETE FROM expenses WHERE id=? AND user_id=?", (expense_id, user_id))
         conn.execute("DELETE FROM payments WHERE expense_id=? AND user_id=?", (expense_id, user_id))
+
+
+def set_paused(user_id, expense_id, paused):
+    """พัก/เปิดใช้รายการต่อ (paused=1 พัก, 0 เปิดต่อ)"""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE expenses SET paused=? WHERE id=? AND user_id=?",
+            (1 if paused else 0, expense_id, user_id),
+        )
 
 
 def increment_paid(user_id, expense_id, by=1):
@@ -435,7 +478,9 @@ def category_breakdown(user_id, ym=None):
 def scheduled_totals(user_id):
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT type, COALESCE(SUM(amount),0) AS t FROM expenses WHERE user_id=? AND active=1 GROUP BY type",
+            "SELECT type, COALESCE(SUM(amount),0) AS t FROM expenses "
+            "WHERE user_id=? AND active=1 AND (paused IS NULL OR paused=0) "
+            "AND (paid_via IS NULL OR paid_via=0) AND (tracking_only IS NULL OR tracking_only=0) GROUP BY type",
             (user_id,),
         ).fetchall()
     d = {r["type"]: r["t"] for r in rows}

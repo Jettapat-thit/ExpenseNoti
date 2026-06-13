@@ -29,6 +29,11 @@ LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "").stri
 # (สำรองสำหรับโหมด single-user เดิม — multi-user ไม่ใช้แล้ว)
 LINE_TO_USER_ID = os.environ.get("LINE_TO_USER_ID", "").strip()
 
+# รายชื่อ LINE user id ที่เป็นแอดมิน (คั่นด้วยจุลภาค) — เข้าหน้า /admin จัดการข้อมูลทุก user ได้
+ADMIN_LINE_USER_IDS = {
+    x.strip() for x in os.environ.get("ADMIN_LINE_USER_IDS", "").split(",") if x.strip()
+}
+
 # LINE Login (OAuth) — สร้าง LINE Login channel ใน provider เดียวกับ Messaging API
 LINE_LOGIN_CHANNEL_ID = os.environ.get("LINE_LOGIN_CHANNEL_ID", "").strip()
 LINE_LOGIN_CHANNEL_SECRET = os.environ.get("LINE_LOGIN_CHANNEL_SECRET", "").strip()

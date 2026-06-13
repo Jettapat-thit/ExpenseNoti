@@ -46,6 +46,7 @@ header .wrap { display: flex; align-items: center; justify-content: space-betwee
 .main-nav { display: flex; align-items: center; gap: 4px; }
 .main-nav > a { padding: 8px 12px; text-decoration: none; color: var(--muted); font-size: .94rem; font-weight: 500; border-radius: 8px; transition: color .15s, background .15s; }
 .main-nav > a:hover { color: var(--green); background: #f3f4f6; }
+.nav-admin { color: #4f46e5 !important; font-weight: 700; }
 
 /* hamburger (มือถือ) */
 .nav-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; flex-direction: column; gap: 5px; }
@@ -233,6 +234,26 @@ h2 { margin-top: 0; }
 .zone-paid { background: #e7f9ec; border-color: #86e0a0; }
 .zone-paid .section-head { background: var(--green-dark); }
 
+/* จ่ายผ่านบัตร/รายการอื่น — โทนม่วงคราม */
+.zone-linked { background: #eef0ff; border-color: #b5bdf5; }
+.zone-linked .section-head { background: #4f46e5; }
+.zone-note { font-size: .82rem; color: var(--muted); margin: -6px 0 12px; }
+
+/* พักชั่วคราว — โทนเทา */
+.zone-paused { background: #f1f3f5; border-color: #d3d8de; }
+.zone-paused .section-head { background: #6b7280; }
+.exp-card.is-paused { opacity: .72; }
+.btn-resume { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn-resume:hover { background: #000; }
+
+/* กลุ่มย่อยตามหมวดหมู่ */
+.cat-group { margin-bottom: 14px; }
+.cat-group:last-child { margin-bottom: 0; }
+.cat-group-head { display: flex; align-items: center; gap: 7px; font-size: .9rem; font-weight: 700;
+    color: #374151; margin: 4px 2px 8px; }
+.cat-group-n { background: rgba(0,0,0,.07); color: #374151; border-radius: 999px;
+    padding: 0 8px; font-size: .76rem; min-width: 20px; text-align: center; }
+
 /* การ์ดในโซนสีให้พื้นขาวเพื่อตัดกับพื้นโซน */
 .zone .exp-card { background: var(--card); border-color: transparent; }
 .zone-paid .exp-card.is-paid { background: #fff; }
@@ -256,6 +277,8 @@ h2 { margin-top: 0; }
 .income-amount { color: var(--blue); }
 .var-amount { font-size: .95rem; font-weight: 700; color: var(--amber); }
 .badge-var { background: #ede9fe; color: #6d28d9; }
+.badge-via { background: #e0e7ff; color: #3730a3; }
+.badge-track { background: #e5e7eb; color: #4b5563; }
 
 /* category chips */
 .cat-grid { display: flex; flex-wrap: wrap; gap: 10px; }

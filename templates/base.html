@@ -24,6 +24,7 @@
                 <a href="{{ url_for('history') }}">ประวัติ</a>
                 <a href="{{ url_for('categories') }}">หมวดหมู่</a>
                 <a href="{{ url_for('settings') }}">ตั้งค่า</a>
+                {% if is_admin %}<a href="{{ url_for('admin') }}" class="nav-admin">Admin</a>{% endif %}
                 <div class="user-box">
                     {% if user.picture_url %}<img src="{{ user.picture_url }}" class="avatar" alt="">{% endif %}
                     <span class="user-name">{{ user.display_name or 'ผู้ใช้' }}</span>
