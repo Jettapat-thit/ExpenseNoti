@@ -64,7 +64,7 @@ def admin_required(view):
 @app.context_processor
 def inject_user():
     u = current_user()
-    return {"user": u, "is_admin": is_admin(u)}
+    return {"user": u, "is_admin": is_admin(u), "current_year": date.today().year}
 
 
 # ---------- auth routes ----------
@@ -580,11 +580,25 @@ def calendar_view():
                           "is_today": d == today, "status": status})
         weeks.append(cells)
 
+    # รายการแบบลิสต์รายวัน (สำหรับมือถือ — อ่านง่ายกว่าตาราง)
+    agenda = []
+    for d in sorted(items_by_day):
+        ddate = date(year, month, d)
+        if ddate < today:
+            status = "overdue"
+        elif ddate == today:
+            status = "due"
+        elif (ddate - today).days <= 3:
+            status = "soon"
+        else:
+            status = "later"
+        agenda.append({"day": d, "items": items_by_day[d], "status": status, "is_today": ddate == today})
+
     prev_m = (year - 1, 12) if month == 1 else (year, month - 1)
     next_m = (year + 1, 1) if month == 12 else (year, month + 1)
     th_months = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
                  "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
-    return render_template("calendar.html", weeks=weeks, year=year, month=month,
+    return render_template("calendar.html", weeks=weeks, agenda=agenda, year=year, month=month,
                            month_name=th_months[month], prev_m=prev_m, next_m=next_m, today=today)
 
 

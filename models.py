@@ -4,11 +4,33 @@
 ผู้ใช้ผูกกับบัญชี LINE ผ่าน line_user_id
 การเชื่อมต่อ/ความต่างของ dialect อยู่ใน db.py
 """
+import calendar as _calendar
 from datetime import date
 
 import config
 import db
 from db import get_conn
+
+
+def _clamp_due(year, month, due_day):
+    """วันครบกำหนดของเดือนนั้น (ไม่เกินจำนวนวันจริง)"""
+    last = _calendar.monthrange(year, month)[1]
+    return date(year, month, min(int(due_day), last))
+
+
+def _next_due(due_day, today):
+    """วันครบกำหนดถัดไป (>= วันนี้)"""
+    this_m = _clamp_due(today.year, today.month, due_day)
+    if this_m >= today:
+        return this_m
+    y, m = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+    return _clamp_due(y, m, due_day)
+
+
+def _cycle_start(next_due, due_day):
+    """จุดเริ่มรอบบิล = วันครบกำหนดของเดือนก่อนหน้า next_due"""
+    y, m = (next_due.year - 1, 12) if next_due.month == 1 else (next_due.year, next_due.month - 1)
+    return _clamp_due(y, m, due_day)
 
 # หมวดหมู่เริ่มต้น (seed ให้ user ใหม่แต่ละคน) — (key, ชื่อ, ไอคอน, ชนิด, ลำดับ)
 DEFAULT_CATEGORIES = [
@@ -406,15 +428,29 @@ def delete_payment(user_id, payment_id):
         conn.execute("DELETE FROM payments WHERE id=? AND user_id=?", (payment_id, user_id))
 
 
-def paid_expense_ids(user_id, ym=None):
-    """คืน set ของ expense_id ที่มีการบันทึกจ่ายในเดือนนั้น (ใช้ทำ checklist จ่ายแล้ว/ยังไม่จ่าย)"""
-    ym = ym or date.today().strftime("%Y-%m")
+def paid_expense_ids(user_id, today=None):
+    """
+    คืน set ของ expense_id ที่ "จ่ายแล้วสำหรับรอบบิลปัจจุบัน"
+    นับตามรอบบิล (billing cycle) ไม่ใช่เดือนปฏิทิน — จ่ายล่วงหน้าข้ามเดือนก็นับถูก
+    รอบ = (วันครบกำหนดรอบก่อน, วันครบกำหนดรอบถัดไป]
+    """
+    today = today or date.today()
+    ids = set()
     with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT DISTINCT expense_id FROM payments WHERE user_id=? AND substr(paid_date,1,7)=?",
-            (user_id, ym),
+        exps = conn.execute(
+            "SELECT id, due_day FROM expenses WHERE user_id=?", (user_id,)
         ).fetchall()
-    return {r["expense_id"] for r in rows}
+        for e in exps:
+            nd = _next_due(e["due_day"], today)
+            cs = _cycle_start(nd, e["due_day"])
+            row = conn.execute(
+                "SELECT 1 FROM payments WHERE user_id=? AND expense_id=? "
+                "AND paid_date > ? AND paid_date <= ? LIMIT 1",
+                (user_id, e["id"], cs.isoformat(), nd.isoformat()),
+            ).fetchone()
+            if row:
+                ids.add(e["id"])
+    return ids
 
 
 def payment_total(user_id, expense_id=None):

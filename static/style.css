@@ -217,6 +217,32 @@ h2 { margin-top: 0; }
 .installment-box legend { font-size: .84rem; color: var(--muted); padding: 0 8px; }
 .form-actions { display: flex; gap: 10px; margin-top: 8px; }
 
+/* ตาราง .grid */
+.grid { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.grid th, .grid td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border);
+    font-size: .92rem; vertical-align: middle; }
+.grid th { background: var(--soft); color: var(--muted); font-weight: 700; font-size: .8rem; }
+.grid tr:last-child td { border-bottom: none; }
+.grid .num { text-align: right; }
+.grid .actions { white-space: nowrap; text-align: right; }
+
+/* ตาราง .grid บนมือถือ — แปลงเป็นการ์ดมีป้ายกำกับ */
+@media (max-width: 640px) {
+    .grid, .grid tbody { display: block; background: none; border: none; box-shadow: none; }
+    .grid thead { display: none; }
+    .grid tr { display: block; background: var(--card); border: 1px solid var(--border);
+        border-radius: var(--radius-sm); box-shadow: var(--shadow); margin-bottom: 12px; padding: 8px 14px; }
+    .grid td { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+        border: none; padding: 8px 0; text-align: right; }
+    .grid td:not(:last-child) { border-bottom: 1px solid var(--border); }
+    .grid td::before { content: attr(data-label); font-weight: 700; color: var(--muted);
+        font-size: .8rem; text-align: left; flex-shrink: 0; }
+    .grid td.actions { justify-content: flex-end; }
+    .grid td.actions::before { display: none; }
+    .grid .num { text-align: right; }
+}
+
 /* section heading */
 .section-head { margin: 28px 0 12px; font-size: 1.05rem; font-weight: 800; }
 .section-paid { color: var(--green-dark); }
@@ -370,6 +396,21 @@ h2 { margin-top: 0; }
 .cal-item.soon { border-color: #facc15; background: #fefce8; }
 .cal-amt { color: var(--muted); }
 
+/* agenda list (มือถือ) */
+.cal-agenda { display: none; flex-direction: column; gap: 10px; }
+.agenda-day { display: flex; gap: 12px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px 14px; box-shadow: var(--shadow); border-left: 5px solid #94a3b8; }
+.agenda-day.overdue { border-left-color: #dc2626; }
+.agenda-day.due { border-left-color: #f59e0b; }
+.agenda-day.soon { border-left-color: #facc15; }
+.agenda-day.is-today { background: #eff6ff; }
+.agenda-date { flex-shrink: 0; width: 54px; text-align: center; }
+.agenda-num { display: block; font-size: 1.5rem; font-weight: 800; line-height: 1; }
+.agenda-mon { font-size: .72rem; color: var(--muted); }
+.agenda-items { flex: 1; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+.agenda-item { display: flex; justify-content: space-between; gap: 10px; font-size: .92rem; }
+.agenda-amt { color: var(--muted); white-space: nowrap; font-weight: 600; }
+
 /* preview bubble */
 .line-bubble { background: #d8f6c4; border-radius: 16px; padding: 14px 18px; max-width: 480px;
     white-space: pre-wrap; font-family: inherit; font-size: .92rem; margin: 10px 0; border: 1px solid #b7e89a; }
@@ -427,11 +468,9 @@ h2 { margin-top: 0; }
     .exp-actions { gap: 6px; }
     .btn-small { padding: 8px 12px; font-size: .85rem; }
 
-    /* ปฏิทินบนมือถือ — เล็กลง โชว์เป็นจุดแทนข้อความยาว */
-    .cal-cell { min-height: 60px; padding: 3px; }
-    .cal-dow { padding: 7px 0; font-size: .72rem; }
-    .cal-item { font-size: 0; padding: 0; height: 6px; border-radius: 3px; border-left: none; margin-bottom: 2px; }
-    .cal-amt { display: none; }
+    /* ปฏิทินบนมือถือ — ใช้ลิสต์รายวันแทนตารางจิ๋ว (อ่านง่ายกว่า) */
+    .calendar { display: none; }
+    .cal-agenda { display: flex; }
     .safe-value { font-size: 1.3rem; }
     .zone { padding: 2px 10px 12px; border-radius: 14px; }
 }

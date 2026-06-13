@@ -40,4 +40,27 @@
     {% endfor %}
 </div>
 
+<div class="cal-agenda">
+    {% if agenda %}
+    {% for a in agenda %}
+    <div class="agenda-day {{ a.status }}{% if a.is_today %} is-today{% endif %}">
+        <div class="agenda-date">
+            <span class="agenda-num">{{ a.day }}</span>
+            <span class="agenda-mon">{{ month_name[:3] }}{% if a.is_today %} · วันนี้{% endif %}</span>
+        </div>
+        <div class="agenda-items">
+            {% for it in a['items'] %}
+            <div class="agenda-item">
+                <span>{{ it.icon }} {{ it.name }}</span>
+                <span class="agenda-amt">{% if it.variable %}แล้วแต่บิล{% else %}{{ "{:,.0f}".format(it.amount) }} ฿{% endif %}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty"><div class="empty-icon">📅</div><p>เดือนนี้ไม่มีรายการครบกำหนด</p></div>
+    {% endif %}
+</div>
+
 {% endblock %}
