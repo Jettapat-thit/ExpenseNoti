@@ -1,13 +1,14 @@
 """
-ชั้นจัดการฐานข้อมูล SQLite — แบบหลายผู้ใช้ (multi-user)
+ชั้นจัดการฐานข้อมูล — แบบหลายผู้ใช้ (multi-user) รองรับทั้ง PostgreSQL และ SQLite
 ทุกตารางผูกกับ user_id และทุกฟังก์ชันต้องส่ง user_id เพื่อแยกข้อมูลของแต่ละคน
 ผู้ใช้ผูกกับบัญชี LINE ผ่าน line_user_id
+การเชื่อมต่อ/ความต่างของ dialect อยู่ใน db.py
 """
-import sqlite3
 from datetime import date
-from contextlib import contextmanager
 
 import config
+import db
+from db import get_conn
 
 # หมวดหมู่เริ่มต้น (seed ให้ user ใหม่แต่ละคน) — (key, ชื่อ, ไอคอน, ชนิด, ลำดับ)
 DEFAULT_CATEGORIES = [
@@ -26,39 +27,29 @@ DEFAULT_CATEGORIES = [
 ]
 
 
-@contextmanager
-def get_conn():
-    conn = sqlite3.connect(config.DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    try:
-        yield conn
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def init_db():
-    """สร้างตาราง + migration ให้รองรับ multi-user"""
+    """สร้างตาราง + migration — ใช้ได้ทั้ง PostgreSQL และ SQLite"""
+    pk = db.AUTOPK
+    now = db.NOW
     with get_conn() as conn:
         conn.execute(
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS users (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                id            {pk},
                 line_user_id  TEXT UNIQUE NOT NULL,
                 display_name  TEXT,
                 picture_url   TEXT,
                 notify_hour   INTEGER NOT NULL DEFAULT 8,
                 summary_day   INTEGER NOT NULL DEFAULT 1,
-                created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                created_at    TEXT NOT NULL DEFAULT ({now}),
                 last_login    TEXT
             )
             """
         )
         conn.execute(
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS expenses (
-                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                id                  {pk},
                 user_id             INTEGER NOT NULL DEFAULT 0,
                 name                TEXT    NOT NULL,
                 category            TEXT    NOT NULL DEFAULT 'other',
@@ -72,40 +63,40 @@ def init_db():
                 note                TEXT,
                 type                TEXT    NOT NULL DEFAULT 'expense',
                 variable_amount     INTEGER NOT NULL DEFAULT 0,
-                created_at          TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+                created_at          TEXT    NOT NULL DEFAULT ({now})
             )
             """
         )
         conn.execute(
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS payments (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id          {pk},
                 user_id     INTEGER NOT NULL DEFAULT 0,
                 expense_id  INTEGER NOT NULL,
                 amount      REAL    NOT NULL DEFAULT 0,
                 paid_date   TEXT    NOT NULL,
                 installment_no INTEGER,
                 note        TEXT,
-                created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+                created_at  TEXT    NOT NULL DEFAULT ({now})
             )
             """
         )
         conn.execute(
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS notify_log (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id          {pk},
                 user_id     INTEGER NOT NULL DEFAULT 0,
                 kind        TEXT    NOT NULL,
                 ref_key     TEXT    NOT NULL,
                 message     TEXT,
-                sent_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+                sent_at     TEXT    NOT NULL DEFAULT ({now})
             )
             """
         )
         conn.execute(
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS categories (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id          {pk},
                 user_id     INTEGER NOT NULL DEFAULT 0,
                 key         TEXT NOT NULL,
                 label       TEXT NOT NULL,
@@ -116,11 +107,10 @@ def init_db():
             )
             """
         )
-
         conn.execute(
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS budgets (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                id        {pk},
                 user_id   INTEGER NOT NULL,
                 category  TEXT    NOT NULL,
                 amount    REAL    NOT NULL DEFAULT 0,
@@ -129,34 +119,27 @@ def init_db():
             """
         )
         conn.execute(
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS goals (
-                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                id                   {pk},
                 user_id              INTEGER NOT NULL,
                 name                 TEXT    NOT NULL,
                 icon                 TEXT    NOT NULL DEFAULT '🎯',
                 target_amount        REAL    NOT NULL DEFAULT 0,
                 saved_amount         REAL    NOT NULL DEFAULT 0,
                 monthly_contribution REAL    NOT NULL DEFAULT 0,
-                created_at           TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+                created_at           TEXT    NOT NULL DEFAULT ({now})
             )
             """
         )
 
         # ---- migration จากสคีมาเดิม (single-user) ----
-        _add_column_if_missing(conn, "expenses", "user_id", "INTEGER NOT NULL DEFAULT 0")
-        _add_column_if_missing(conn, "expenses", "type", "TEXT NOT NULL DEFAULT 'expense'")
-        _add_column_if_missing(conn, "expenses", "variable_amount", "INTEGER NOT NULL DEFAULT 0")
-        _add_column_if_missing(conn, "payments", "user_id", "INTEGER NOT NULL DEFAULT 0")
-        _add_column_if_missing(conn, "notify_log", "user_id", "INTEGER NOT NULL DEFAULT 0")
-        # categories เดิม (จากฟีเจอร์ก่อนหน้า) อาจไม่มี user_id -> เติมให้
-        _add_column_if_missing(conn, "categories", "user_id", "INTEGER NOT NULL DEFAULT 0")
-
-
-def _add_column_if_missing(conn, table, column, decl):
-    cols = [r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
-    if column not in cols:
-        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+        conn.add_column("expenses", "user_id", "INTEGER NOT NULL DEFAULT 0")
+        conn.add_column("expenses", "type", "TEXT NOT NULL DEFAULT 'expense'")
+        conn.add_column("expenses", "variable_amount", "INTEGER NOT NULL DEFAULT 0")
+        conn.add_column("payments", "user_id", "INTEGER NOT NULL DEFAULT 0")
+        conn.add_column("notify_log", "user_id", "INTEGER NOT NULL DEFAULT 0")
+        conn.add_column("categories", "user_id", "INTEGER NOT NULL DEFAULT 0")
 
 
 # ---------- users ----------
@@ -167,18 +150,17 @@ def upsert_user(line_user_id, display_name=None, picture_url=None):
         row = conn.execute("SELECT * FROM users WHERE line_user_id = ?", (line_user_id,)).fetchone()
         if row:
             conn.execute(
-                "UPDATE users SET display_name=?, picture_url=?, last_login=datetime('now','localtime') WHERE id=?",
+                f"UPDATE users SET display_name=?, picture_url=?, last_login={db.NOW} WHERE id=?",
                 (display_name, picture_url, row["id"]),
             )
             user_id = row["id"]
             is_new = False
         else:
-            cur = conn.execute(
-                "INSERT INTO users (line_user_id, display_name, picture_url, last_login) "
-                "VALUES (?,?,?,datetime('now','localtime'))",
+            user_id = conn.insert_returning_id(
+                f"INSERT INTO users (line_user_id, display_name, picture_url, last_login) "
+                f"VALUES (?,?,?,{db.NOW})",
                 (line_user_id, display_name, picture_url),
             )
-            user_id = cur.lastrowid
             is_new = True
         if is_new:
             conn.executemany(
@@ -231,7 +213,8 @@ def icon_map(user_id, kind=None):
 def create_category(user_id, key, label, icon, kind="expense"):
     with get_conn() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO categories (user_id, key, label, icon, type, sort_order) VALUES (?,?,?,?,?,?)",
+            "INSERT INTO categories (user_id, key, label, icon, type, sort_order) VALUES (?,?,?,?,?,?) "
+            "ON CONFLICT(user_id, key) DO UPDATE SET label=excluded.label, icon=excluded.icon, type=excluded.type",
             (user_id, key, label, icon or "📌", kind if kind in ("expense", "income") else "expense", 500),
         )
 
@@ -272,7 +255,7 @@ def get_expense(user_id, expense_id):
 
 def create_expense(user_id, data):
     with get_conn() as conn:
-        cur = conn.execute(
+        return conn.insert_returning_id(
             """
             INSERT INTO expenses
                 (user_id, name, category, amount, due_day, total_installments,
@@ -295,7 +278,6 @@ def create_expense(user_id, data):
                 1 if data.get("variable_amount") else 0,
             ),
         )
-        return cur.lastrowid
 
 
 def update_expense(user_id, expense_id, data):
@@ -334,7 +316,7 @@ def delete_expense(user_id, expense_id):
 def increment_paid(user_id, expense_id, by=1):
     with get_conn() as conn:
         conn.execute(
-            "UPDATE expenses SET paid_installments = MAX(0, paid_installments + ?) WHERE id=? AND user_id=?",
+            f"UPDATE expenses SET paid_installments = {db.GREATEST}(0, paid_installments + ?) WHERE id=? AND user_id=?",
             (by, expense_id, user_id),
         )
 
@@ -343,12 +325,11 @@ def increment_paid(user_id, expense_id, by=1):
 
 def record_payment(user_id, expense_id, amount, paid_date, installment_no=None, note=None):
     with get_conn() as conn:
-        cur = conn.execute(
+        return conn.insert_returning_id(
             "INSERT INTO payments (user_id, expense_id, amount, paid_date, installment_no, note) "
             "VALUES (?,?,?,?,?,?)",
             (user_id, expense_id, float(amount or 0), paid_date, installment_no, note or None),
         )
-        return cur.lastrowid
 
 
 def list_payments(user_id, expense_id=None, limit=None):
@@ -543,13 +524,12 @@ def get_goal(user_id, goal_id):
 
 def create_goal(user_id, name, target_amount, monthly_contribution=0, saved_amount=0, icon="🎯"):
     with get_conn() as conn:
-        cur = conn.execute(
+        return conn.insert_returning_id(
             "INSERT INTO goals (user_id, name, icon, target_amount, saved_amount, monthly_contribution) "
             "VALUES (?,?,?,?,?,?)",
             (user_id, name, icon or "🎯", float(target_amount or 0),
              float(saved_amount or 0), float(monthly_contribution or 0)),
         )
-        return cur.lastrowid
 
 
 def update_goal(user_id, goal_id, name, target_amount, monthly_contribution, icon="🎯"):
@@ -563,7 +543,7 @@ def update_goal(user_id, goal_id, name, target_amount, monthly_contribution, ico
 def add_goal_contribution(user_id, goal_id, amount):
     with get_conn() as conn:
         conn.execute(
-            "UPDATE goals SET saved_amount = MAX(0, saved_amount + ?) WHERE id=? AND user_id=?",
+            f"UPDATE goals SET saved_amount = {db.GREATEST}(0, saved_amount + ?) WHERE id=? AND user_id=?",
             (float(amount or 0), goal_id, user_id),
         )
 

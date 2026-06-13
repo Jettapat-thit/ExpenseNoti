@@ -1,27 +1,32 @@
 # Render Blueprint — deploy ด้วยการเชื่อม GitHub repo แล้ว Render จะอ่านไฟล์นี้เอง
 # https://render.com/docs/blueprint-spec
+# ใช้ PostgreSQL (managed) เป็นฐานข้อมูล — ต่อ DBeaver จากภายนอกได้
+databases:
+  - name: spendly-db
+    plan: free            # ฟรี 1 GB (มีอายุ ~90 วันสำหรับแพ็กฟรี / อัปเป็น Basic เพื่อใช้ถาวร)
+    databaseName: spendly
+    user: spendly
+
 services:
   - type: web
     name: expensenoti
     runtime: python
-    plan: starter            # $7/เดือน — จำเป็นเพราะต้องใช้ persistent disk
+    plan: starter
     buildCommand: pip install -r requirements.txt
-    # ใช้ worker เดียว เพื่อไม่ให้ scheduler รันซ้ำหลาย process
+    # worker เดียว เพื่อไม่ให้ scheduler รันซ้ำหลาย process
     startCommand: gunicorn app:app --workers 1 --bind 0.0.0.0:$PORT --timeout 120
-    disk:
-      name: data
-      mountPath: /data       # ไฟล์ SQLite เก็บที่นี่ ไม่หายเวลา redeploy
-      sizeGB: 1
     envVars:
-      - key: DATABASE_PATH
-        value: /data/expenses.db
-      - key: RUN_SCHEDULER     # เปิด background scheduler ในตัวเว็บ
+      - key: DATABASE_URL            # ดึง connection string จาก managed Postgres อัตโนมัติ
+        fromDatabase:
+          name: spendly-db
+          property: connectionString
+      - key: RUN_SCHEDULER
         value: "1"
-      - key: NOTIFY_MINUTE     # นาทีที่เช็คทุกชั่วโมง (ส่งตามเวลาที่แต่ละ user ตั้ง)
+      - key: NOTIFY_MINUTE
         value: "0"
       - key: TIMEZONE
         value: Asia/Bangkok
-      - key: BASE_URL          # URL จริงของแอป (ใช้ทำ redirect URI ของ LINE Login)
+      - key: BASE_URL                # URL จริงของแอป (ใช้ทำ redirect URI ของ LINE Login)
         value: https://expensenoti.onrender.com
       - key: SECRET_KEY
         generateValue: true

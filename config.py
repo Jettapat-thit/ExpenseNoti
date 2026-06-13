@@ -17,6 +17,9 @@ if _env_file.exists():
         os.environ.setdefault(_k.strip(), _v.strip())
 
 # ฐานข้อมูล
+# - ถ้าตั้ง DATABASE_URL (postgres://...) จะใช้ PostgreSQL (ดู db.py)
+# - ถ้าไม่ตั้ง จะใช้ SQLite ที่ DATABASE_PATH
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 DATABASE_PATH = os.environ.get("DATABASE_PATH", str(BASE_DIR / "expenses.db"))
 
 # LINE Messaging API (บอทที่ใช้ส่งแจ้งเตือน — token เดียวร่วมกันทุก user)

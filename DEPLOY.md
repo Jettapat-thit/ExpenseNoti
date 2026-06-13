@@ -86,6 +86,23 @@ git push -u origin main
 
 ---
 
+## ฐานข้อมูล PostgreSQL + ต่อ DBeaver
+
+ระบบใช้ **PostgreSQL** เมื่อมี env `DATABASE_URL` (ถ้าไม่มีจะ fallback เป็น SQLite ในเครื่อง)
+ไฟล์ `render.yaml` สร้าง managed Postgres (`spendly-db`) และเชื่อม `DATABASE_URL` ให้อัตโนมัติแล้ว
+
+### ต่อ DBeaver ดูข้อมูลจริง
+1. ใน Render เปิดฐานข้อมูล **spendly-db** → แท็บ **Info** → คัดลอก **External Connection** (host, port, database, user, password)
+2. เปิด DBeaver → **New Database Connection** → เลือก **PostgreSQL**
+3. กรอก Host / Port (5432) / Database / Username / Password ตามที่คัดลอกมา
+4. แท็บ **SSL** → เปิด **Use SSL** (Render บังคับ SSL) → Test Connection → Finish
+5. เห็นตาราง `users`, `expenses`, `payments`, `budgets`, `goals`, `categories`, `notify_log` แบบ real-time
+
+> รันในเครื่อง: ถ้าไม่ตั้ง `DATABASE_URL` แอปจะใช้ SQLite (`expenses.db`) เปิดดูด้วย DBeaver แบบ SQLite ได้เหมือนเดิม
+> ตารางทั้งหมดถูกสร้างอัตโนมัติเมื่อรันแอปครั้งแรก (init_db)
+
+---
+
 ## ทางเลือกอื่น
 
 - **Railway** ($5/เดือน) — ใช้ `Dockerfile` ที่ให้มา + ผูก Volume ที่ `/data` แล้วตั้ง env เหมือนข้างบน

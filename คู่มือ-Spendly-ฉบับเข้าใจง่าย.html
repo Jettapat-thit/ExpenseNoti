@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spendly — สรุปแบบเข้าใจง่าย</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Tahoma","Noto Sans Thai",sans-serif; background:#f3f4f6; color:#1d2433;
+         line-height:1.85; font-size:20px; margin:0; padding:24px; }
+  .sheet { max-width:760px; margin:0 auto; background:#fff; border-radius:24px;
+           padding:40px 44px; box-shadow:0 8px 30px rgba(0,0,0,.08); }
+  h1 { font-size:38px; margin:0 0 6px; }
+  .lead { font-size:22px; color:#4b5563; margin:0 0 28px; }
+  h2 { font-size:26px; margin:34px 0 14px; padding-bottom:8px; border-bottom:3px solid #c4f23c; }
+  .item { display:flex; gap:16px; align-items:flex-start; padding:14px 0; border-bottom:1px solid #eef0f2; }
+  .item:last-child { border-bottom:none; }
+  .ico { font-size:34px; flex-shrink:0; width:46px; text-align:center; }
+  .item b { font-size:21px; }
+  .item p { margin:2px 0 0; font-size:19px; color:#4b5563; }
+  .steps { counter-reset:s; padding:0; list-style:none; margin:0; }
+  .steps li { counter-increment:s; position:relative; padding:14px 0 14px 60px; font-size:21px; border-bottom:1px solid #eef0f2; }
+  .steps li:last-child { border-bottom:none; }
+  .steps li::before { content:counter(s); position:absolute; left:0; top:12px; width:40px; height:40px;
+        background:#15171c; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center;
+        font-size:22px; font-weight:bold; }
+  .note { background:#eafaef; border:2px solid #86e0a0; border-radius:16px; padding:18px 22px; margin-top:28px; font-size:20px; }
+  .big { font-size:23px; font-weight:bold; }
+  @media print { body { background:#fff; padding:0; } .sheet { box-shadow:none; border-radius:0; } }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <h1>💸 Spendly</h1>
+  <p class="lead">แอปช่วย <b>จดและเตือนค่าใช้จ่ายรายเดือน</b> เช่น ค่าน้ำ ค่าไฟ ผ่อนบ้าน ผ่อนรถ บัตรเครดิต<br>
+  พอใกล้ถึงกำหนดจ่าย แอปจะ <b>ส่งข้อความเตือนเข้า LINE</b> ให้เอง ไม่ลืมจ่าย ไม่โดนค่าปรับ</p>
+
+  <h2>แอปนี้ทำอะไรได้บ้าง</h2>
+
+  <div class="item"><div class="ico">🔔</div><div>
+    <b>เตือนก่อนถึงวันจ่าย</b>
+    <p>เตือนล่วงหน้าและเตือนวันครบกำหนด ส่งเข้า LINE ของท่าน</p></div></div>
+
+  <div class="item"><div class="ico">📋</div><div>
+    <b>สรุปทุกบิลในที่เดียว</b>
+    <p>เห็นชัดว่าเดือนนี้ต้องจ่ายอะไรบ้าง รวมเป็นเงินเท่าไหร่</p></div></div>
+
+  <div class="item"><div class="ico">✅</div><div>
+    <b>เช็กว่าจ่ายแล้วหรือยัง</b>
+    <p>แยกชัดเป็น 2 กล่องสี — สีส้มคือ "ยังไม่จ่าย" สีเขียวคือ "จ่ายแล้ว"</p></div></div>
+
+  <div class="item"><div class="ico">⚡</div><div>
+    <b>กดจ่ายเร็วแค่ปุ่มเดียว</b>
+    <p>พอจ่ายเงินจริงแล้ว กดปุ่มเดียวก็บันทึกเสร็จ ไม่ต้องพิมพ์อะไรมาก</p></div></div>
+
+  <div class="item"><div class="ico">🚗</div><div>
+    <b>นับงวดผ่อน</b>
+    <p>ผ่อนรถ ผ่อนของ บอกได้ว่าจ่ายไปกี่งวด เหลืออีกกี่งวดถึงหมด</p></div></div>
+
+  <div class="item"><div class="ico">💳</div><div>
+    <b>รองรับบัตรเครดิต (ยอดไม่เท่ากันทุกเดือน)</b>
+    <p>เตือนตามรอบ พอจ่ายค่อยกรอกยอดจริงจากบิล</p></div></div>
+
+  <div class="item"><div class="ico">💰</div><div>
+    <b>บันทึกรายรับและดูเงินเหลือ</b>
+    <p>ใส่เงินเดือนเข้าไป แอปคำนวณให้ว่าเดือนนี้ <b>เหลือใช้ได้เท่าไหร่</b></p></div></div>
+
+  <div class="item"><div class="ico">🎯</div><div>
+    <b>ตั้งงบและเป้าหมายการออม</b>
+    <p>ตั้งงบแต่ละอย่าง ถ้าใช้เกินจะเตือน และตั้งเป้าเก็บเงินได้</p></div></div>
+
+  <div class="item"><div class="ico">📅</div><div>
+    <b>ปฏิทินวันครบกำหนด</b>
+    <p>ดูเป็นปฏิทินทั้งเดือน วันไหนต้องจ่ายอะไร เห็นง่าย</p></div></div>
+
+  <div class="item"><div class="ico">📊</div><div>
+    <b>กราฟสรุปย้อนหลัง</b>
+    <p>ดูว่าเดือนไหนจ่ายเยอะ จ่ายน้อย เทียบกันได้</p></div></div>
+
+  <div class="item"><div class="ico">👨‍👩‍👧</div><div>
+    <b>ใช้ได้หลายคน แยกข้อมูลส่วนตัว</b>
+    <p>แต่ละคนเข้าด้วย LINE ของตัวเอง ข้อมูลไม่ปนกัน</p></div></div>
+
+  <h2>เริ่มใช้ง่าย ๆ 3 ขั้นตอน</h2>
+  <ol class="steps">
+    <li><b>เข้าสู่ระบบด้วย LINE</b> — กดปุ่มเดียว ไม่ต้องจำรหัสผ่าน</li>
+    <li><b>ใส่รายการที่ต้องจ่าย</b> — ชื่อ จำนวนเงิน และวันครบกำหนดของแต่ละเดือน</li>
+    <li><b>รอรับการเตือนใน LINE</b> — แอปจะเตือนเองทุกครั้งที่ใกล้ถึงกำหนด</li>
+  </ol>
+
+  <div class="note">
+    <span class="big">สรุปสั้น ๆ:</span><br>
+    Spendly คือ "สมุดจดค่าใช้จ่าย + คนเตือนความจำ" ที่อยู่ในมือถือ
+    ช่วยให้จ่ายบิลตรงเวลา รู้ว่าเงินไปไหนบ้าง และเหลือใช้เท่าไหร่ — โดยเตือนผ่าน LINE ที่ใช้กันอยู่ทุกวัน
+  </div>
+
+</div>
+</body>
+</html>
