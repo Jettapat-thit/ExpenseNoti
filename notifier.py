@@ -166,6 +166,7 @@ def run_daily_for_user(user, today=None, send=True, dry_run=False):
     """
     today = today or date.today()
     uid = user["id"]
+    models.auto_advance_linked(uid, today)   # เดินงวดอัตโนมัติให้รายการจ่ายผ่านบัตร
     to = user.get("line_user_id")
     summary_day = int(user.get("summary_day", 1) or 1)
     sent_messages = []

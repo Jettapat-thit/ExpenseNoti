@@ -5,7 +5,7 @@
 การเชื่อมต่อ/ความต่างของ dialect อยู่ใน db.py
 """
 import calendar as _calendar
-from datetime import date
+from datetime import date, timedelta
 
 import config
 import db
@@ -30,6 +30,15 @@ def _next_due(due_day, today):
 def _cycle_start(anchor_due, due_day):
     """จุดเริ่มรอบบิล = วันครบกำหนดของเดือนก่อนหน้า anchor_due"""
     y, m = (anchor_due.year - 1, 12) if anchor_due.month == 1 else (anchor_due.year, anchor_due.month - 1)
+    return _clamp_due(y, m, due_day)
+
+
+def _last_due_on_or_before(due_day, today):
+    """วันครบกำหนดล่าสุดที่ <= วันนี้"""
+    this_m = _clamp_due(today.year, today.month, due_day)
+    if this_m <= today:
+        return this_m
+    y, m = (today.year - 1, 12) if today.month == 1 else (today.year, today.month - 1)
     return _clamp_due(y, m, due_day)
 
 
@@ -176,6 +185,8 @@ def init_db():
         conn.add_column("expenses", "paid_via", "INTEGER")
         # paused = พักการชำระชั่วคราว (หยุดนับยอด/หยุดเตือน แต่เก็บไว้ เปิดต่อทีหลังได้)
         conn.add_column("expenses", "paused", "INTEGER NOT NULL DEFAULT 0")
+        # last_auto_date = วันครบกำหนดล่าสุดที่เดินงวดอัตโนมัติไปแล้ว (สำหรับรายการจ่ายผ่านบัตร)
+        conn.add_column("expenses", "last_auto_date", "TEXT")
         # tracking_only = มีไว้ติดตามเฉย ๆ ไม่นำมารวมในยอดรวม (แต่ยังเตือน/แสดงตามปกติ)
         conn.add_column("expenses", "tracking_only", "INTEGER NOT NULL DEFAULT 0")
         conn.add_column("payments", "user_id", "INTEGER NOT NULL DEFAULT 0")
@@ -381,6 +392,46 @@ def delete_expense(user_id, expense_id):
     with get_conn() as conn:
         conn.execute("DELETE FROM expenses WHERE id=? AND user_id=?", (expense_id, user_id))
         conn.execute("DELETE FROM payments WHERE expense_id=? AND user_id=?", (expense_id, user_id))
+
+
+def auto_advance_linked(user_id, today=None):
+    """
+    เดินงวดอัตโนมัติให้รายการ "จ่ายผ่านรายการอื่น" ที่เป็นการผ่อน (มีจำนวนงวด)
+    เมื่อถึง/เลยวันครบกำหนดของแต่ละรอบ — เพราะจ่ายผ่านบัตรอยู่แล้ว ไม่ได้กดบันทึกเอง
+    ไม่สร้าง payment (กันไปปนสถิติ) แค่ +งวด และจำว่าเดินถึงรอบไหนแล้ว
+    """
+    today = today or date.today()
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, due_day, total_installments, paid_installments, last_auto_date "
+            "FROM expenses WHERE user_id=? AND paid_via IS NOT NULL AND paid_via<>0 "
+            "AND total_installments IS NOT NULL AND active=1",
+            (user_id,),
+        ).fetchall()
+        for e in rows:
+            dd = e["due_day"]
+            total = int(e["total_installments"])
+            paid = int(e["paid_installments"])
+            la = e["last_auto_date"]
+            if not la:
+                # ครั้งแรก: ตั้ง baseline เป็นรอบล่าสุดที่ผ่านมา (ยังไม่ +งวด เริ่มเดินรอบถัดไป)
+                base = _last_due_on_or_before(dd, today)
+                conn.execute("UPDATE expenses SET last_auto_date=? WHERE id=?", (base.isoformat(), e["id"]))
+                continue
+            la_d = date.fromisoformat(la[:10])
+            new_paid, cur, guard = paid, la_d, 0
+            while new_paid < total and guard < 120:
+                nxt = _next_due(dd, cur + timedelta(days=1))   # รอบถัดไปหลัง cur
+                if nxt > today:
+                    break
+                new_paid += 1
+                cur = nxt
+                guard += 1
+            if new_paid != paid or cur.isoformat() != la_d.isoformat():
+                conn.execute(
+                    "UPDATE expenses SET paid_installments=?, last_auto_date=? WHERE id=?",
+                    (new_paid, cur.isoformat(), e["id"]),
+                )
 
 
 def set_paused(user_id, expense_id, paused):

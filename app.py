@@ -123,6 +123,7 @@ def logout():
 @login_required
 def index():
     uid = session["uid"]
+    models.auto_advance_linked(uid)   # เดินงวดอัตโนมัติให้รายการจ่ายผ่านบัตร
     expenses = models.list_expenses(uid)
     today = date.today()
     cats = models.get_categories(uid)
