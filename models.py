@@ -187,6 +187,8 @@ def init_db():
         conn.add_column("expenses", "paused", "INTEGER NOT NULL DEFAULT 0")
         # last_auto_date = วันครบกำหนดล่าสุดที่เดินงวดอัตโนมัติไปแล้ว (สำหรับรายการจ่ายผ่านบัตร)
         conn.add_column("expenses", "last_auto_date", "TEXT")
+        # is_method = ตั้งเป็น "ช่องทางจ่าย" (เช่น บัตรเครดิต) ให้รายการอื่นเลือกจ่ายผ่านได้
+        conn.add_column("expenses", "is_method", "INTEGER NOT NULL DEFAULT 0")
         # tracking_only = มีไว้ติดตามเฉย ๆ ไม่นำมารวมในยอดรวม (แต่ยังเตือน/แสดงตามปกติ)
         conn.add_column("expenses", "tracking_only", "INTEGER NOT NULL DEFAULT 0")
         conn.add_column("payments", "user_id", "INTEGER NOT NULL DEFAULT 0")
@@ -336,8 +338,8 @@ def create_expense(user_id, data):
             """
             INSERT INTO expenses
                 (user_id, name, category, amount, due_day, total_installments,
-                 paid_installments, start_date, remind_days_before, active, note, type, variable_amount, paid_via, tracking_only)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 paid_installments, start_date, remind_days_before, active, note, type, variable_amount, paid_via, tracking_only, is_method)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 user_id,
@@ -355,6 +357,7 @@ def create_expense(user_id, data):
                 1 if data.get("variable_amount") else 0,
                 _int_or_none(data.get("paid_via")),
                 1 if data.get("tracking_only") else 0,
+                1 if data.get("is_method") else 0,
             ),
         )
 
@@ -365,7 +368,7 @@ def update_expense(user_id, expense_id, data):
             """
             UPDATE expenses SET
                 name=?, category=?, amount=?, due_day=?, total_installments=?,
-                paid_installments=?, start_date=?, remind_days_before=?, active=?, note=?, type=?, variable_amount=?, paid_via=?, tracking_only=?
+                paid_installments=?, start_date=?, remind_days_before=?, active=?, note=?, type=?, variable_amount=?, paid_via=?, tracking_only=?, is_method=?
             WHERE id=? AND user_id=?
             """,
             (
@@ -383,6 +386,7 @@ def update_expense(user_id, expense_id, data):
                 1 if data.get("variable_amount") else 0,
                 _int_or_none(data.get("paid_via")),
                 1 if data.get("tracking_only") else 0,
+                1 if data.get("is_method") else 0,
                 expense_id, user_id,
             ),
         )

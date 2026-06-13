@@ -43,6 +43,12 @@
         ไม่นำมารวมในยอดรวม (มีไว้ติดตามเฉย ๆ) — ยังเตือนและแสดงตามปกติ แต่ไม่คิดในยอด/งบ
     </label>
 
+    <label class="checkbox" style="margin-bottom:10px">
+        <input type="checkbox" name="is_method"
+               {% if expense and expense.is_method %}checked{% endif %}>
+        ตั้งเป็นช่องทางจ่าย (เช่น บัตรเครดิต) — ให้รายการอื่นเลือก "จ่ายผ่าน" รายการนี้ได้
+    </label>
+
     {% if pay_methods %}
     <label id="via-label">
         จ่ายผ่านรายการอื่น (ไม่นำมารวมยอด)

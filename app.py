@@ -137,9 +137,11 @@ def index():
     expense_total = income_total = 0.0
     active_count = upcoming_count = 0
     for e in expenses:
+        finished = notifier.is_finished(e)
+        if finished:
+            continue   # ผ่อนครบแล้ว (งวดทั้งหมด = จ่ายแล้ว) ไม่แสดงในหน้ารายการ
         due = notifier.next_due_date(e["due_day"], today)
         rem = notifier.remaining_installments(e)
-        finished = notifier.is_finished(e)
         days_left = (due - today).days
         is_income = e.get("type") == "income"
         is_paid = e["id"] in paid_ids
@@ -221,7 +223,7 @@ def add():
         models.create_expense(uid, _form_to_data(request.form))
         flash("เพิ่มรายการเรียบร้อยแล้ว", "success")
         return redirect(url_for("index"))
-    methods = models.list_expenses(uid, kind="expense")
+    methods = [m for m in models.list_expenses(uid, kind="expense") if m.get("is_method")]
     return render_template("form.html", expense=None, categories=models.get_categories(uid),
                            pay_methods=methods,
                            default_remind=config.DEFAULT_REMIND_DAYS_BEFORE, today=date.today())
@@ -238,7 +240,8 @@ def edit(expense_id):
         models.update_expense(uid, expense_id, _form_to_data(request.form))
         flash("บันทึกการแก้ไขแล้ว", "success")
         return redirect(url_for("index"))
-    methods = [m for m in models.list_expenses(uid, kind="expense") if m["id"] != expense_id]
+    methods = [m for m in models.list_expenses(uid, kind="expense")
+               if m.get("is_method") and m["id"] != expense_id]
     return render_template("form.html", expense=expense, categories=models.get_categories(uid),
                            pay_methods=methods,
                            default_remind=config.DEFAULT_REMIND_DAYS_BEFORE, today=date.today())
@@ -658,6 +661,7 @@ def _form_to_data(form):
         "type": form.get("type", "expense"),
         "variable_amount": 1 if form.get("variable_amount") == "on" else 0,
         "tracking_only": 1 if form.get("tracking_only") == "on" else 0,
+        "is_method": 1 if form.get("is_method") == "on" else 0,
         "paid_via": form.get("paid_via") or None,
         "category": form.get("category", "other"),
         "amount": form.get("amount", 0),
