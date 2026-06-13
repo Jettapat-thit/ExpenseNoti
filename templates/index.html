@@ -26,7 +26,7 @@
         <div class="exp-amount var-amount">แล้วแต่บิล</div>
         {% else %}
         <div class="exp-amount {% if is_income %}income-amount{% endif %}">
-            {% if is_income %}+{% endif %}{{ "{:,.0f}".format(e.amount) }}<small> บาท</small>
+            {% if is_income %}+{% endif %}{{ "{:,.2f}".format(e.amount) }}<small> บาท</small>
         </div>
         {% endif %}
     </div>
@@ -80,7 +80,7 @@
             {% if not e.paid %}
                 {% if not e.finished and not is_income and not e.variable_amount and e.amount %}
                 <form method="post" action="{{ url_for('quickpay', expense_id=e.id) }}" style="display:inline"
-                      onsubmit="return confirm('บันทึกจ่าย {{ e.name }} {{ '{:,.0f}'.format(e.amount) }} บาท วันนี้?')">
+                      onsubmit="return confirm('บันทึกจ่าย {{ e.name }} {{ '{:,.2f}'.format(e.amount) }} บาท วันนี้?')">
                     <button class="btn btn-small btn-quick" title="จ่ายยอดปกติวันนี้ทันที">⚡ จ่ายเร็ว</button>
                 </form>
                 {% endif %}
@@ -131,21 +131,21 @@
     <div class="stat-card stat-income clickable" data-filter="type:income">
         <div class="stat-icon">💰</div>
         <div class="stat-body">
-            <div class="stat-value">{{ "{:,.0f}".format(income_total) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-value">{{ "{:,.2f}".format(income_total) }} <span class="stat-unit">บาท</span></div>
             <div class="stat-label">รายรับ/เดือน</div>
         </div>
     </div>
     <div class="stat-card stat-expense clickable" data-filter="type:expense">
         <div class="stat-icon">💸</div>
         <div class="stat-body">
-            <div class="stat-value">{{ "{:,.0f}".format(monthly_total) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-value">{{ "{:,.2f}".format(monthly_total) }} <span class="stat-unit">บาท</span></div>
             <div class="stat-label">รายจ่าย/เดือน</div>
         </div>
     </div>
     <div class="stat-card {% if net_total < 0 %}stat-warn{% else %}stat-primary{% endif %}">
         <div class="stat-icon">🧮</div>
         <div class="stat-body">
-            <div class="stat-value">{{ "{:,.0f}".format(net_total) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-value">{{ "{:,.2f}".format(net_total) }} <span class="stat-unit">บาท</span></div>
             <div class="stat-label">คงเหลือสุทธิ</div>
         </div>
     </div>
@@ -153,7 +153,7 @@
     <div class="stat-card stat-primary clickable" data-filter="type:expense">
         <div class="stat-icon">💰</div>
         <div class="stat-body">
-            <div class="stat-value">{{ "{:,.0f}".format(monthly_total) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-value">{{ "{:,.2f}".format(monthly_total) }} <span class="stat-unit">บาท</span></div>
             <div class="stat-label">รวมต่อเดือน</div>
         </div>
     </div>
@@ -198,11 +198,11 @@
 <div class="safe-bar {% if sts.safe < 0 %}safe-neg{% endif %}">
     <div class="safe-main">
         <span class="safe-label">💵 เหลือใช้ได้เดือนนี้</span>
-        <span class="safe-value">{{ "{:,.0f}".format(sts.safe) }} บาท</span>
+        <span class="safe-value">{{ "{:,.2f}".format(sts.safe) }} บาท</span>
     </div>
     <div class="safe-calc">
-        รายรับ {{ "{:,.0f}".format(sts.income) }} − บิล {{ "{:,.0f}".format(sts.expense) }}
-        {% if sts.savings %}− ออม {{ "{:,.0f}".format(sts.savings) }}{% endif %}
+        รายรับ {{ "{:,.2f}".format(sts.income) }} − บิล {{ "{:,.2f}".format(sts.expense) }}
+        {% if sts.savings %}− ออม {{ "{:,.2f}".format(sts.savings) }}{% endif %}
     </div>
 </div>
 {% endif %}

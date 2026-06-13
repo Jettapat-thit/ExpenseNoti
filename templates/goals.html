@@ -4,7 +4,7 @@
 <div class="page-head">
     <div>
         <h1 class="page-title">เป้าหมายการออม</h1>
-        <p class="page-sub">ตั้งใจออมรวม {{ "{:,.0f}".format(monthly_total) }} บาท/เดือน</p>
+        <p class="page-sub">ตั้งใจออมรวม {{ "{:,.2f}".format(monthly_total) }} บาท/เดือน</p>
     </div>
 </div>
 
@@ -47,7 +47,7 @@
                 <span class="exp-cat">
                     {% if g.done %}สำเร็จแล้ว 🎉
                     {% elif g.months_left %}อีก ~{{ g.months_left }} เดือน
-                    {% else %}ออม {{ "{:,.0f}".format(g.monthly_contribution) }}/เดือน{% endif %}
+                    {% else %}ออม {{ "{:,.2f}".format(g.monthly_contribution) }}/เดือน{% endif %}
                 </span>
             </div>
             <div class="exp-amount">{{ g.pct }}%</div>
@@ -55,8 +55,8 @@
 
         <div class="exp-progress">
             <div class="progress-head">
-                <span>{{ "{:,.0f}".format(g.saved_amount) }} / {{ "{:,.0f}".format(g.target_amount) }} บาท</span>
-                {% if not g.done %}<span class="muted">เหลือ {{ "{:,.0f}".format(g.remaining) }}</span>{% endif %}
+                <span>{{ "{:,.2f}".format(g.saved_amount) }} / {{ "{:,.2f}".format(g.target_amount) }} บาท</span>
+                {% if not g.done %}<span class="muted">เหลือ {{ "{:,.2f}".format(g.remaining) }}</span>{% endif %}
             </div>
             <div class="progress-track">
                 <div class="progress-fill" style="width: {{ 100 if g.pct > 100 else g.pct }}%"></div>

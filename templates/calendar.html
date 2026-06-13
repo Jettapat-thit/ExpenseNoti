@@ -30,8 +30,8 @@
         <div class="cal-cell {% if not c.in_month %}cal-out{% endif %} {% if c.is_today %}cal-today{% endif %}">
             <div class="cal-day">{{ c.date.day }}</div>
             {% for it in c['items'] %}
-            <div class="cal-item {{ c.status }}" title="{{ it.name }}{% if not it.variable %} · {{ '{:,.0f}'.format(it.amount) }} บาท{% endif %}">
-                {{ it.icon }} {{ it.name }}{% if not it.variable %} <span class="cal-amt">{{ "{:,.0f}".format(it.amount) }}</span>{% endif %}
+            <div class="cal-item {{ c.status }}" title="{{ it.name }}{% if not it.variable %} · {{ '{:,.2f}'.format(it.amount) }} บาท{% endif %}">
+                {{ it.icon }} {{ it.name }}{% if not it.variable %} <span class="cal-amt">{{ "{:,.2f}".format(it.amount) }}</span>{% endif %}
             </div>
             {% endfor %}
         </div>
@@ -52,7 +52,7 @@
             {% for it in a['items'] %}
             <div class="agenda-item">
                 <span>{{ it.icon }} {{ it.name }}</span>
-                <span class="agenda-amt">{% if it.variable %}แล้วแต่บิล{% else %}{{ "{:,.0f}".format(it.amount) }} ฿{% endif %}</span>
+                <span class="agenda-amt">{% if it.variable %}แล้วแต่บิล{% else %}{{ "{:,.2f}".format(it.amount) }} ฿{% endif %}</span>
             </div>
             {% endfor %}
         </div>

@@ -46,7 +46,7 @@ def is_finished(exp):
 
 
 def _fmt_baht(amount):
-    return f"{amount:,.0f}" if float(amount).is_integer() else f"{amount:,.2f}"
+    return f"{amount:,.2f}"
 
 
 # ---------- สร้างข้อความ ----------

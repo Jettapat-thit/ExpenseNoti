@@ -13,7 +13,7 @@
     <div class="stat-card stat-primary">
         <div class="stat-icon">💸</div>
         <div class="stat-body">
-            <div class="stat-value">{{ "{:,.0f}".format(sched.expense) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-value">{{ "{:,.2f}".format(sched.expense) }} <span class="stat-unit">บาท</span></div>
             <div class="stat-label">รายจ่าย/เดือน</div>
         </div>
     </div>
@@ -21,7 +21,7 @@
         <div class="stat-icon">🧾</div>
         <div class="stat-body">
             <div class="stat-value">{{ n_payments }}</div>
-            <div class="stat-label">ครั้งที่จ่าย ({{ "{:,.0f}".format(paid_total) }} บาท)</div>
+            <div class="stat-label">ครั้งที่จ่าย ({{ "{:,.2f}".format(paid_total) }} บาท)</div>
         </div>
     </div>
     <div class="stat-card">
@@ -45,7 +45,7 @@
             <td data-label="ชื่อ"><strong>{{ e.name }}</strong></td>
             <td data-label="หมวด">{{ e.category_name }}</td>
             <td data-label="ชนิด">{{ 'รายรับ' if e.type == 'income' else 'รายจ่าย' }}</td>
-            <td class="num" data-label="ยอด">{% if e.variable_amount %}แล้วแต่บิล{% else %}{{ "{:,.0f}".format(e.amount) }}{% endif %}</td>
+            <td class="num" data-label="ยอด">{% if e.variable_amount %}แล้วแต่บิล{% else %}{{ "{:,.2f}".format(e.amount) }}{% endif %}</td>
             <td data-label="กำหนด">วันที่ {{ e.due_day }}</td>
             <td data-label="สถานะ">
                 {% if e.paused %}<span class="badge badge-off">พัก</span>

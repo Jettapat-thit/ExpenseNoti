@@ -14,14 +14,14 @@
     <div class="stat-card stat-primary">
         <div class="stat-icon">📅</div>
         <div class="stat-body">
-            <div class="stat-value">{{ "{:,.0f}".format(this_m) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-value">{{ "{:,.2f}".format(this_m) }} <span class="stat-unit">บาท</span></div>
             <div class="stat-label">จ่ายเดือนนี้</div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">⏮</div>
         <div class="stat-body">
-            <div class="stat-value">{{ "{:,.0f}".format(prev_m) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-value">{{ "{:,.2f}".format(prev_m) }} <span class="stat-unit">บาท</span></div>
             <div class="stat-label">เดือนก่อน</div>
         </div>
     </div>
@@ -29,7 +29,7 @@
         <div class="stat-icon">{% if diff > 0 %}📈{% elif diff < 0 %}📉{% else %}➖{% endif %}</div>
         <div class="stat-body">
             <div class="stat-value">
-                {% if diff > 0 %}+{% endif %}{{ "{:,.0f}".format(diff) }}
+                {% if diff > 0 %}+{% endif %}{{ "{:,.2f}".format(diff) }}
                 {% if pct is not none %}<span class="stat-unit">({% if diff > 0 %}+{% endif %}{{ pct }}%)</span>{% endif %}
             </div>
             <div class="stat-label">เทียบเดือนก่อน</div>
@@ -57,7 +57,7 @@
         <p class="muted" style="text-align:center;margin-top:10px">
             คงเหลือสุทธิตามแผน
             <strong class="{% if sched.net < 0 %}neg{% else %}pos{% endif %}">
-                {{ "{:,.0f}".format(sched.net) }} บาท/เดือน
+                {{ "{:,.2f}".format(sched.net) }} บาท/เดือน
             </strong>
         </p>
     </div>

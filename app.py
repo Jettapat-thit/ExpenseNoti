@@ -284,7 +284,7 @@ def quickpay(expense_id):
         models.increment_paid(uid, expense_id, 1)
     models.record_payment(uid, expense_id, expense["amount"], date.today().isoformat(),
                           installment_no, "จ่ายเร็ว")
-    flash(f"บันทึกจ่าย {expense['name']} {expense['amount']:,.0f} บาทแล้ว", "success")
+    flash(f"บันทึกจ่าย {expense['name']} {expense['amount']:,.2f} บาทแล้ว", "success")
     return redirect(request.referrer or url_for("index"))
 
 

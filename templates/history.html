@@ -17,7 +17,7 @@
     <div class="stat-card stat-primary">
         <div class="stat-icon">💵</div>
         <div class="stat-body">
-            <div class="stat-value">{{ "{:,.0f}".format(total) }} <span class="stat-unit">บาท</span></div>
+            <div class="stat-value">{{ "{:,.2f}".format(total) }} <span class="stat-unit">บาท</span></div>
             <div class="stat-label">ยอดจ่ายสะสมทั้งหมด</div>
         </div>
     </div>
@@ -48,7 +48,7 @@
             <td>{{ p.paid_date }}</td>
             <td>{{ p.icon }} {{ p.expense_name or '(ถูกลบแล้ว)' }}</td>
             <td>{% if p.installment_no %}งวด {{ p.installment_no }}{% else %}<span class="muted">—</span>{% endif %}</td>
-            <td class="num">{{ "{:,.0f}".format(p.amount) }}</td>
+            <td class="num">{{ "{:,.2f}".format(p.amount) }}</td>
             <td>{% if p.note %}{{ p.note }}{% else %}<span class="muted">—</span>{% endif %}</td>
             <td class="actions">
                 <form method="post" action="{{ url_for('payment_delete', payment_id=p.id) }}" style="display:inline"
