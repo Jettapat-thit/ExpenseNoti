@@ -479,8 +479,9 @@ def scheduled_totals(user_id):
     with get_conn() as conn:
         rows = conn.execute(
             "SELECT type, COALESCE(SUM(amount),0) AS t FROM expenses "
-            "WHERE user_id=? AND active=1 AND (paused IS NULL OR paused=0) "
-            "AND (paid_via IS NULL OR paid_via=0) AND (tracking_only IS NULL OR tracking_only=0) GROUP BY type",
+            "WHERE user_id=? AND (paused IS NULL OR paused=0) "
+            "AND (paid_via IS NULL OR paid_via=0) AND (tracking_only IS NULL OR tracking_only=0) "
+            "AND (type='income' OR active=1) GROUP BY type",
             (user_id,),
         ).fetchall()
     d = {r["type"]: r["t"] for r in rows}

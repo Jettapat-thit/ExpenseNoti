@@ -1,13 +1,18 @@
 {% extends "base.html" %}
 
-{% macro expense_card(e, is_income=False, paused_ctx=False) %}
+{% macro expense_card(e, is_income=False, paused_ctx=False, status='') %}
 <div class="exp-card
     {%- if not e.active %} is-off{% endif %}
     {%- if paused_ctx %} is-paused{% endif %}
     {%- if e.finished %} is-done{% endif %}
     {%- if e.paid %} is-paid{% endif %}
     {%- if e.active and not e.finished and e.days_left == 0 and not is_income and not e.paid and not paused_ctx %} is-due{% endif %}
-    {%- if is_income %} is-income{% endif %}">
+    {%- if is_income %} is-income{% endif %}"
+    data-name="{{ e.name|lower }}"
+    data-cat="{{ e.category }}"
+    data-type="{{ 'income' if is_income else 'expense' }}"
+    data-status="{{ status }}"
+    data-upcoming="{{ '1' if e.is_upcoming else '0' }}">
 
     <div class="exp-top">
         <div class="exp-icon">
@@ -123,14 +128,14 @@
 
 <div class="stats">
     {% if has_income %}
-    <div class="stat-card stat-income">
+    <div class="stat-card stat-income clickable" data-filter="type:income">
         <div class="stat-icon">💰</div>
         <div class="stat-body">
             <div class="stat-value">{{ "{:,.0f}".format(income_total) }} <span class="stat-unit">บาท</span></div>
             <div class="stat-label">รายรับ/เดือน</div>
         </div>
     </div>
-    <div class="stat-card stat-expense">
+    <div class="stat-card stat-expense clickable" data-filter="type:expense">
         <div class="stat-icon">💸</div>
         <div class="stat-body">
             <div class="stat-value">{{ "{:,.0f}".format(monthly_total) }} <span class="stat-unit">บาท</span></div>
@@ -145,22 +150,22 @@
         </div>
     </div>
     {% else %}
-    <div class="stat-card stat-primary">
+    <div class="stat-card stat-primary clickable" data-filter="type:expense">
         <div class="stat-icon">💰</div>
         <div class="stat-body">
             <div class="stat-value">{{ "{:,.0f}".format(monthly_total) }} <span class="stat-unit">บาท</span></div>
             <div class="stat-label">รวมต่อเดือน</div>
         </div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card clickable" data-filter="clear">
         <div class="stat-icon">📋</div>
         <div class="stat-body">
             <div class="stat-value">{{ active_count }}</div>
-            <div class="stat-label">รายการที่ใช้งาน</div>
+            <div class="stat-label">รายการทั้งหมด</div>
         </div>
     </div>
     {% endif %}
-    <div class="stat-card {% if upcoming_count %}stat-warn{% endif %}">
+    <div class="stat-card clickable {% if upcoming_count %}stat-warn{% endif %}" data-filter="status:upcoming">
         <div class="stat-icon">🔔</div>
         <div class="stat-body">
             <div class="stat-value">{{ upcoming_count }}</div>
@@ -168,6 +173,26 @@
         </div>
     </div>
 </div>
+
+<div class="filter-bar">
+    <div class="filter-search">
+        <span class="fs-ico">🔍</span>
+        <input type="text" id="fSearch" placeholder="ค้นหาชื่อรายการ...">
+    </div>
+    <select id="fType">
+        <option value="all">ทุกประเภท</option>
+        <option value="income">รายรับ</option>
+        <option value="expense">รายจ่าย</option>
+    </select>
+    <select id="fCat">
+        <option value="all">ทุกหมวด</option>
+        {% for c in categories_list %}
+        <option value="{{ c.key }}">{{ c.icon }} {{ c.label }}</option>
+        {% endfor %}
+    </select>
+    <button type="button" id="fClear" class="btn btn-small">เคลียร์</button>
+</div>
+<div id="fActive" class="filter-active" hidden></div>
 
 {% if sts.income or sts.savings %}
 <div class="safe-bar {% if sts.safe < 0 %}safe-neg{% endif %}">
@@ -183,10 +208,12 @@
 {% endif %}
 
 {% if incomes %}
+<section class="zone-sec" data-sec="income">
 <h3 class="section-head">💰 รายรับ</h3>
 <div class="cards">
-    {% for e in incomes %}{{ expense_card(e, is_income=True) }}{% endfor %}
+    {% for e in incomes %}{{ expense_card(e, is_income=True, status='income') }}{% endfor %}
 </div>
+</section>
 {% endif %}
 
 {% if expense_count %}
@@ -202,13 +229,13 @@
 {% endif %}
 
 {% if unpaid_n %}
-<section class="zone zone-unpaid">
+<section class="zone zone-unpaid zone-sec" data-sec="unpaid">
     <h3 class="section-head">⬜ ยังไม่จ่าย ({{ unpaid_n }})</h3>
     {% for g in unpaid_groups %}
     <div class="cat-group">
         <div class="cat-group-head">{{ g.icon }} {{ g.label }} <span class="cat-group-n">{{ g['items']|length }}</span></div>
         <div class="cards">
-            {% for e in g['items'] %}{{ expense_card(e) }}{% endfor %}
+            {% for e in g['items'] %}{{ expense_card(e, status='unpaid') }}{% endfor %}
         </div>
     </div>
     {% endfor %}
@@ -216,13 +243,13 @@
 {% endif %}
 
 {% if paid_n %}
-<section class="zone zone-paid">
+<section class="zone zone-paid zone-sec" data-sec="paid">
     <h3 class="section-head section-paid">✅ จ่ายแล้วเดือนนี้ ({{ paid_n }})</h3>
     {% for g in paid_groups %}
     <div class="cat-group">
         <div class="cat-group-head">{{ g.icon }} {{ g.label }} <span class="cat-group-n">{{ g['items']|length }}</span></div>
         <div class="cards">
-            {% for e in g['items'] %}{{ expense_card(e) }}{% endfor %}
+            {% for e in g['items'] %}{{ expense_card(e, status='paid') }}{% endfor %}
         </div>
     </div>
     {% endfor %}
@@ -230,24 +257,26 @@
 {% endif %}
 
 {% if linked %}
-<section class="zone zone-linked">
+<section class="zone zone-linked zone-sec" data-sec="linked">
     <h3 class="section-head">💳 จ่ายผ่านบัตร/รายการอื่น ({{ linked|length }})</h3>
     <p class="zone-note">รายการเหล่านี้ไม่ถูกนับในยอดรวม เพราะจ่ายผ่านรายการอื่นแล้ว — ไว้ติดตามงวดเท่านั้น</p>
     <div class="cards">
-        {% for e in linked %}{{ expense_card(e) }}{% endfor %}
+        {% for e in linked %}{{ expense_card(e, status='linked') }}{% endfor %}
     </div>
 </section>
 {% endif %}
 
 {% if paused %}
-<section class="zone zone-paused">
+<section class="zone zone-paused zone-sec" data-sec="paused">
     <h3 class="section-head">⏸ พักชั่วคราว ({{ paused|length }})</h3>
     <p class="zone-note">รายการที่พักไว้ — ไม่นับยอดและไม่เตือน กด"เปิดใช้ต่อ"เมื่อพร้อม</p>
     <div class="cards">
-        {% for e in paused %}{{ expense_card(e, paused_ctx=True) }}{% endfor %}
+        {% for e in paused %}{{ expense_card(e, paused_ctx=True, status='paused') }}{% endfor %}
     </div>
 </section>
 {% endif %}
+
+<div class="no-match" hidden>🔍 ไม่พบรายการที่ตรงกับตัวกรอง</div>
 
 {% if not unpaid_n and not paid_n and not incomes and not linked and not paused %}
 <div class="empty">
@@ -269,5 +298,82 @@
     </ul>
 </details>
 {% endif %}
+
+<script>
+(function(){
+    var state = {search:"", type:"all", cat:"all", status:"all"};
+    var search = document.getElementById('fSearch');
+    var typeSel = document.getElementById('fType');
+    var catSel  = document.getElementById('fCat');
+    var clearBtn= document.getElementById('fClear');
+    var active  = document.getElementById('fActive');
+    var noMatch = document.querySelector('.no-match');
+    var cards   = Array.prototype.slice.call(document.querySelectorAll('.exp-card'));
+    var STATUS_TH = {income:"รายรับ", unpaid:"ยังไม่จ่าย", paid:"จ่ายแล้ว", linked:"จ่ายผ่านบัตร", paused:"พักชั่วคราว", upcoming:"ใกล้ครบกำหนด"};
+
+    function matches(c){
+        if(state.search && c.dataset.name.indexOf(state.search) === -1) return false;
+        if(state.type !== "all" && c.dataset.type !== state.type) return false;
+        if(state.cat !== "all" && c.dataset.cat !== state.cat) return false;
+        if(state.status !== "all"){
+            if(state.status === "upcoming"){ if(c.dataset.upcoming !== "1") return false; }
+            else if(c.dataset.status !== state.status) return false;
+        }
+        return true;
+    }
+    function apply(){
+        var shown = 0;
+        cards.forEach(function(c){
+            var ok = matches(c);
+            c.style.display = ok ? "" : "none";
+            if(ok) shown++;
+        });
+        // ซ่อนกลุ่มย่อย/โซนที่ว่าง
+        document.querySelectorAll('.cat-group').forEach(function(g){
+            var any = g.querySelector('.exp-card:not([style*="display: none"])');
+            g.style.display = any ? "" : "none";
+        });
+        document.querySelectorAll('.zone-sec').forEach(function(z){
+            var any = z.querySelector('.exp-card:not([style*="display: none"])');
+            z.style.display = any ? "" : "none";
+        });
+        if(noMatch) noMatch.hidden = shown !== 0;
+        // แถบบอกตัวกรองที่ใช้อยู่
+        var on = (state.search?1:0)+(state.type!=="all"?1:0)+(state.cat!=="all"?1:0)+(state.status!=="all"?1:0);
+        if(on){
+            var parts = [];
+            if(state.status!=="all") parts.push(STATUS_TH[state.status]||state.status);
+            if(state.type!=="all") parts.push(state.type==="income"?"รายรับ":"รายจ่าย");
+            if(state.cat!=="all"){ var o=catSel.querySelector('option[value="'+state.cat+'"]'); if(o) parts.push(o.textContent.trim()); }
+            if(state.search) parts.push('"'+search.value+'"');
+            active.hidden = false;
+            active.innerHTML = 'กำลังกรอง: ' + parts.join(' · ') + ' <a href="#" id="fClear2">✕ เคลียร์</a>';
+            var c2=document.getElementById('fClear2'); if(c2) c2.addEventListener('click', function(ev){ev.preventDefault(); clearAll();});
+        } else { active.hidden = true; }
+    }
+    function clearAll(){
+        state = {search:"", type:"all", cat:"all", status:"all"};
+        search.value=""; typeSel.value="all"; catSel.value="all";
+        apply();
+    }
+    search.addEventListener('input', function(){ state.search = this.value.trim().toLowerCase(); apply(); });
+    typeSel.addEventListener('change', function(){ state.type = this.value; apply(); });
+    catSel.addEventListener('change', function(){ state.cat = this.value; apply(); });
+    clearBtn.addEventListener('click', clearAll);
+
+    // กดที่กล่องสถิติเพื่อกรอง
+    document.querySelectorAll('.stat-card.clickable').forEach(function(card){
+        card.addEventListener('click', function(){
+            var f = card.dataset.filter || "";
+            if(f === "clear"){ clearAll(); return; }
+            var p = f.split(":");
+            if(p[0] === "type"){ state.type = p[1]; typeSel.value = p[1]; state.status="all"; }
+            else if(p[0] === "status"){ state.status = p[1]; }
+            apply();
+            document.querySelector('.zone-sec')?.scrollIntoView({behavior:"smooth", block:"start"});
+        });
+    });
+})();
+</script>
 
 {% endblock %}

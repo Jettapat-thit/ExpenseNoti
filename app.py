@@ -144,18 +144,25 @@ def index():
         is_paid = e["id"] in paid_ids
         is_paused = bool(e.get("paused"))
         linked_via = e.get("paid_via")   # จ่ายผ่านรายการอื่น -> ไม่นับยอด
-        if bool(e["active"]) and not finished and not is_paused:
-            active_count += 1
+        if not finished and not is_paused:
+            # รายรับ: นับยอดเสมอ (ไม่ขึ้นกับสวิตช์แจ้งเตือน)
             if is_income:
                 income_total += float(e["amount"])
-            elif not linked_via:
-                if not e.get("variable_amount") and not e.get("tracking_only"):
-                    expense_total += float(e["amount"])
-                if not is_paid and days_left <= int(e.get("remind_days_before", 3)):
-                    upcoming_count += 1
+                if bool(e["active"]):
+                    active_count += 1
+            elif bool(e["active"]):
+                active_count += 1
+                if not linked_via:
+                    if not e.get("variable_amount") and not e.get("tracking_only"):
+                        expense_total += float(e["amount"])
+                    if not is_paid and days_left <= int(e.get("remind_days_before", 3)):
+                        upcoming_count += 1
         progress = None
         if e.get("total_installments"):
             progress = round(100 * int(e.get("paid_installments", 0)) / int(e["total_installments"]))
+        is_upcoming = (not is_income and not linked_via and not is_paused and not is_paid
+                       and not finished and bool(e["active"])
+                       and days_left <= int(e.get("remind_days_before", 3)))
         row = {
             **e,
             "category_name": cat_map.get(e["category"], e["category"]),
@@ -163,6 +170,7 @@ def index():
             "next_due": due, "days_left": days_left, "remaining": rem,
             "finished": finished, "progress": progress, "paid": is_paid,
             "paid_via_name": name_by_id.get(linked_via) if linked_via else None,
+            "is_upcoming": is_upcoming,
         }
         if is_paused:
             paused_view.append(row)
@@ -191,6 +199,7 @@ def index():
         unpaid_groups=group_by_cat(unpaid_view), paid_groups=group_by_cat(paid_view),
         unpaid_n=len(unpaid_view), paid_n=len(paid_view),
         linked=linked_view, paused=paused_view, incomes=income_view,
+        categories_list=cats,
         monthly_total=expense_total, income_total=income_total,
         net_total=income_total - expense_total, has_income=bool(income_view),
         active_count=active_count, upcoming_count=upcoming_count,
