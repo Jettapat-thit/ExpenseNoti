@@ -217,7 +217,7 @@
 {% endif %}
 
 {% if expense_count %}
-<div class="checklist-bar">
+<div class="checklist-bar clickable" data-filter="status:paid" title="กดเพื่อดูเฉพาะรายการที่จ่ายแล้ว">
     <div class="checklist-head">
         <span class="checklist-title">✅ จ่ายแล้ว {{ paid_count }}/{{ expense_count }} รายการเดือนนี้</span>
         <span class="muted">{{ ((paid_count / expense_count) * 100) | round | int }}%</span>
@@ -361,8 +361,8 @@
     catSel.addEventListener('change', function(){ state.cat = this.value; apply(); });
     clearBtn.addEventListener('click', clearAll);
 
-    // กดที่กล่องสถิติเพื่อกรอง
-    document.querySelectorAll('.stat-card.clickable').forEach(function(card){
+    // กดที่กล่องสถิติ/แถบ checklist เพื่อกรอง
+    document.querySelectorAll('.clickable[data-filter]').forEach(function(card){
         card.addEventListener('click', function(){
             var f = card.dataset.filter || "";
             if(f === "clear"){ clearAll(); return; }

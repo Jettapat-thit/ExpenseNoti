@@ -28,6 +28,14 @@
         <input type="text" name="note" placeholder="เช่น เลขมิเตอร์ / ช่องทางที่จ่าย (ไม่บังคับ)">
     </label>
 
+    <label class="checkbox">
+        <input type="checkbox" name="backdated">
+        บันทึกย้อนหลัง (จ่ายไปแล้วในอดีต) — นับให้รอบที่เพิ่งเลยกำหนด
+    </label>
+    <small class="muted" style="display:block;margin:-10px 0 14px">
+        ติ๊กถ้าจ่ายไปก่อนหน้าแล้วเพิ่งมาบันทึก / ถ้าไม่ติ๊กจะถือว่าเป็นการจ่ายสำหรับรอบถัดไป
+    </small>
+
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">บันทึกการจ่าย</button>
         <a href="{{ url_for('index') }}" class="btn">ยกเลิก</a>

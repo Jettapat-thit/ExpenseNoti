@@ -27,10 +27,22 @@ def _next_due(due_day, today):
     return _clamp_due(y, m, due_day)
 
 
-def _cycle_start(next_due, due_day):
-    """จุดเริ่มรอบบิล = วันครบกำหนดของเดือนก่อนหน้า next_due"""
-    y, m = (next_due.year - 1, 12) if next_due.month == 1 else (next_due.year, next_due.month - 1)
+def _cycle_start(anchor_due, due_day):
+    """จุดเริ่มรอบบิล = วันครบกำหนดของเดือนก่อนหน้า anchor_due"""
+    y, m = (anchor_due.year - 1, 12) if anchor_due.month == 1 else (anchor_due.year, anchor_due.month - 1)
     return _clamp_due(y, m, due_day)
+
+
+def _cycle_due(due_day, today):
+    """วันครบกำหนดที่ 'ใกล้วันนี้ที่สุด' (เดือนก่อน/เดือนนี้/เดือนหน้า) — ใช้ระบุรอบบิลปัจจุบัน
+    ทำให้หลังเลยกำหนดไปไม่กี่วันยังถือเป็นรอบเดิม จึงนับการจ่ายก่อนกำหนดได้ถูก"""
+    y, m = today.year, today.month
+    prev_m = (y - 1, 12) if m == 1 else (y, m - 1)
+    next_m = (y + 1, 1) if m == 12 else (y, m + 1)
+    cands = [_clamp_due(prev_m[0], prev_m[1], due_day),
+             _clamp_due(y, m, due_day),
+             _clamp_due(next_m[0], next_m[1], due_day)]
+    return min(cands, key=lambda d: abs((d - today).days))
 
 # หมวดหมู่เริ่มต้น (seed ให้ user ใหม่แต่ละคน) — (key, ชื่อ, ไอคอน, ชนิด, ลำดับ)
 DEFAULT_CATEGORIES = [
@@ -167,6 +179,8 @@ def init_db():
         # tracking_only = มีไว้ติดตามเฉย ๆ ไม่นำมารวมในยอดรวม (แต่ยังเตือน/แสดงตามปกติ)
         conn.add_column("expenses", "tracking_only", "INTEGER NOT NULL DEFAULT 0")
         conn.add_column("payments", "user_id", "INTEGER NOT NULL DEFAULT 0")
+        # backdated = บันทึกย้อนหลัง (จ่ายไปแล้วในอดีต) -> ใช้ logic รอบที่ใกล้สุด
+        conn.add_column("payments", "backdated", "INTEGER NOT NULL DEFAULT 0")
         conn.add_column("notify_log", "user_id", "INTEGER NOT NULL DEFAULT 0")
         conn.add_column("categories", "user_id", "INTEGER NOT NULL DEFAULT 0")
 
@@ -388,12 +402,12 @@ def increment_paid(user_id, expense_id, by=1):
 
 # ---------- payments (ต่อ user) ----------
 
-def record_payment(user_id, expense_id, amount, paid_date, installment_no=None, note=None):
+def record_payment(user_id, expense_id, amount, paid_date, installment_no=None, note=None, backdated=0):
     with get_conn() as conn:
         return conn.insert_returning_id(
-            "INSERT INTO payments (user_id, expense_id, amount, paid_date, installment_no, note) "
-            "VALUES (?,?,?,?,?,?)",
-            (user_id, expense_id, float(amount or 0), paid_date, installment_no, note or None),
+            "INSERT INTO payments (user_id, expense_id, amount, paid_date, installment_no, note, backdated) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (user_id, expense_id, float(amount or 0), paid_date, installment_no, note or None, 1 if backdated else 0),
         )
 
 
@@ -441,12 +455,19 @@ def paid_expense_ids(user_id, today=None):
             "SELECT id, due_day FROM expenses WHERE user_id=?", (user_id,)
         ).fetchall()
         for e in exps:
-            nd = _next_due(e["due_day"], today)
-            cs = _cycle_start(nd, e["due_day"])
+            dd = e["due_day"]
+            # รอบถัดไป (สำหรับการจ่ายปกติ/ล่วงหน้า)
+            nd = _next_due(dd, today)
+            ns = _cycle_start(nd, dd)
+            # รอบที่ใกล้วันนี้ที่สุด (สำหรับบันทึกย้อนหลัง — นับรอบที่เพิ่งเลยกำหนดได้)
+            cd = _cycle_due(dd, today)
+            cs = _cycle_start(cd, dd)
             row = conn.execute(
-                "SELECT 1 FROM payments WHERE user_id=? AND expense_id=? "
-                "AND paid_date > ? AND paid_date <= ? LIMIT 1",
-                (user_id, e["id"], cs.isoformat(), nd.isoformat()),
+                "SELECT 1 FROM payments WHERE user_id=? AND expense_id=? AND ("
+                "  (COALESCE(backdated,0)=0 AND paid_date > ? AND paid_date <= ?) OR "
+                "  (backdated=1 AND paid_date > ? AND paid_date <= ?) "
+                ") LIMIT 1",
+                (user_id, e["id"], ns.isoformat(), nd.isoformat(), cs.isoformat(), cd.isoformat()),
             ).fetchone()
             if row:
                 ids.add(e["id"])

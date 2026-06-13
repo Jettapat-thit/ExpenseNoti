@@ -260,11 +260,12 @@ def pay(expense_id):
         amount = request.form.get("amount") or expense["amount"]
         paid_date = request.form.get("paid_date") or date.today().isoformat()
         note = request.form.get("note", "").strip()
+        backdated = 1 if request.form.get("backdated") == "on" else 0
         installment_no = None
         if expense.get("total_installments"):
             installment_no = int(expense.get("paid_installments", 0)) + 1
             models.increment_paid(uid, expense_id, 1)
-        models.record_payment(uid, expense_id, amount, paid_date, installment_no, note)
+        models.record_payment(uid, expense_id, amount, paid_date, installment_no, note, backdated)
         flash(f"บันทึกการจ่าย {expense['name']} แล้ว", "success")
         return redirect(url_for("index"))
     return render_template("pay.html", expense=expense, today=date.today())

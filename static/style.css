@@ -287,6 +287,8 @@ h2 { margin-top: 0; }
 /* checklist progress */
 .checklist-bar { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
     padding: 14px 18px; margin-bottom: 6px; box-shadow: var(--shadow); }
+.checklist-bar.clickable { cursor: pointer; transition: box-shadow .18s; }
+.checklist-bar.clickable:hover { box-shadow: var(--shadow-lg); }
 .checklist-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
 .checklist-title { font-weight: 700; font-size: .95rem; }
 .all-done { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; border-radius: 14px;
